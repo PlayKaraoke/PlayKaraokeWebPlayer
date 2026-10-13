@@ -51,7 +51,7 @@ The row actions (up, down, remove) appear when you hover a song. You can also dr
 | **Play/Pause** | Toggles playback |
 | **Restart** (↺) | Goes back to the start of the song and plays. Useful when the singer arrives late |
 | **Stop** | Fully stops and clears the preview. Use it if anything gets stuck; it's always safe |
-| **Next** (⏭) | Plays the next song in the queue. In Show Mode it's **End performance** ([section 7](#7-show-mode-singer-rotation)) |
+| **Next** (⏭) | Plays the next song in the queue. In Show Mode it's **End performance**, or **Skip turn** before the singer starts ([section 7](#7-show-mode-singer-rotation)) |
 | **Pitch − / + / RESET** | Changes the key by semitones (±12) without changing speed, for CDG and MP4 |
 | **Volume** | Main volume (songs, videos and pads). Ambient music has its own volume in Settings |
 
@@ -104,7 +104,7 @@ A controls-free window for a TV, projector or singer-facing monitor.
 
 1. Click the **Second Screen** toggle. If nothing opens, allow pop-ups for this site.
 2. Drag the window to the other display and make it fullscreen (hover for the fullscreen button, or press `F11`).
-3. It stays in sync: lyrics, video, countdown, upcoming singers, and the idle image.
+3. It stays in sync: lyrics, video, countdown, the next two singers, and the idle image. The waiting screen is sized to the window, so it stays readable on a big TV.
 
 **While the second screen is open, it becomes the main player** for video, which saves memory and processing on the operator's computer:
 - **YouTube:** the video plays with sound **only on the second screen**. The main screen shows the cover and the controls (play/pause, seek bar, volume). If you use a key-change browser extension, apply it on the second screen window.
@@ -128,8 +128,11 @@ The queue becomes a rotation of **singers**, each with up to **5 songs**. When a
 - Click a singer to open **Manage singers** on them.
 - When a performance ends, the next singer's song is **loaded and paused**. The preview shows the waiting screen with who's up next. Click **Start now**, or turn on Autoplay to start after the countdown.
 - A singer with no song in queue simply waits. Add a song and they're ready.
-- **Changing the song of the singer whose turn it is** (before they start): click **Change song** on their row and pick another song from your drives, YouTube or a file. You can also reorder or remove their songs in Manage singers; the loaded song updates automatically.
-- **Ending a performance early:** press **Next** (it becomes **End performance** in Show Mode) and confirm. The song counts as sung, with the time actually sung, and the turn moves on. The button unlocks once the performance has started.
+- **Changing the song of the singer whose turn it is:** click **Change song** on their row and pick another song from your drives, YouTube or a file.
+  - **Before they start** (last-minute request): the loaded song is replaced. You can also reorder or remove their songs in Manage singers; the loaded song updates automatically.
+  - **Mid-song** (they give up and want another one): the current song stops and **doesn't count as sung**. The new one is loaded and paused; press **Play**.
+- **Ending a performance early:** press **Next** (it becomes **End performance** in Show Mode) and confirm. The song counts as sung, with the time actually sung, and the turn moves on.
+- **Skipping a turn:** before the singer starts (no song yet, or they left), **Next** becomes **Skip turn**. Confirm and the turn moves to the next singer. Nothing is logged, and the skipped singer stays in the rotation with their songs; to take them out, remove them in Manage singers. Needs at least two singers.
 
 **Manage singers** (button at the bottom of the list, or Settings › Show Mode)
 - Add, rename, reorder or remove singers.
@@ -167,7 +170,7 @@ Shortcuts are **off by default**, so a bump on the keyboard can't disrupt the sh
 |---|---|---|
 | Play / Pause | `Space` | `Space` |
 | Restart song | `⌘ ←` | `Ctrl ←` |
-| Next song / End performance | `⌘ →` | `Ctrl →` |
+| Next song / End performance / Skip turn | `⌘ →` | `Ctrl →` |
 | Stop | `⌘ .` | `Ctrl .` |
 | Pitch up / down | `⌘ ↑` / `⌘ ↓` | `Ctrl ↑` / `Ctrl ↓` |
 | Reset pitch | `⌘ 0` | `Ctrl 0` |
