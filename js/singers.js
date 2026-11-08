@@ -3,7 +3,14 @@
  * cantores, cada um com sua própria sub-fila de até 5 músicas.
  *
  * Regras (confirmadas com o usuário):
- *  - Cantor novo entra no FINAL da rodada atual.
+ *  - Tipo de rodízio (escolhido ao abrir o show, dá pra trocar nas Configurações):
+ *    'arrival' (padrão) — ordem de chegada: cantor novo canta por último
+ *       nesta rodada (logo antes do cantor da vez).
+ *    'fit' — encaixe: cantor novo entra FIT_MIN_WAIT músicas depois da vez,
+ *       mas nunca na frente de quem ainda não cantou nenhuma vez.
+ *    'table' — por mesa: entra como em 'arrival', e cada mesa canta no
+ *       máximo TABLE_MAX_PER_ROUND vezes por rodada (quem sobra na mesa
+ *       canta na rodada seguinte, com prioridade pra quem cantou menos).
  *  - Tocou a música #1 do cantor -> sai da lista dele (consumida).
  *  - Terminou o último cantor -> volta pro #1 automaticamente (loop).
  *  - Cantor sem música na vez dele -> fica "aguardando seleção" (não existe
@@ -18,6 +25,9 @@
  */
 
 const MAX_SONGS_PER_SINGER = 5;
+const ROTATION_MODES = ['arrival', 'fit', 'table'];
+const FIT_MIN_WAIT = 5;          // modo encaixe: canta no mínimo 5 músicas depois da vez
+const TABLE_MAX_PER_ROUND = 2;   // modo mesa: no máximo 2 cantores da mesma mesa por rodada
 
 /** Traduz uma chave se o sistema de idiomas estiver disponível — com
  * fallback pro texto em português, caso esse módulo seja carregado
@@ -34,6 +44,8 @@ function createSingerManager({ onChange }) {
   let singers = []; // { id, name, songs: [], history: [] }
   let currentSingerId = null;
   let idCounter = 0;
+  let rotationMode = 'arrival';
+  let round = 0; // modo mesa: conta as voltas na lista (vira ao passar do último pro primeiro)
 
   function notify() { if (onChange) onChange(); }
 
@@ -46,15 +58,45 @@ function createSingerManager({ onChange }) {
     return singers.some(s => s.id !== excludeId && s.name.trim().toLowerCase() === norm);
   }
 
-  function addSinger(name) {
+  function addSinger(name, { table = null } = {}) {
     const trimmed = (name || '').trim();
     if (!trimmed) throw new Error(st('err_singer_name_empty', 'Nome do cantor não pode ser vazio.'));
     if (nameExists(trimmed)) throw new Error(st('err_singer_name_duplicate', 'Já existe um cantor com esse nome.'));
-    const singer = { id: 'singer_' + (++idCounter), name: trimmed, songs: [], history: [] };
-    singers.push(singer);
-    if (currentSingerId === null) currentSingerId = singer.id;
+    const singer = { id: 'singer_' + (++idCounter), name: trimmed, songs: [], history: [], table };
+    if (currentSingerId === null) {
+      singers.push(singer);
+      currentSingerId = singer.id;
+    } else {
+      singers.splice(newSingerIndex(), 0, singer);
+    }
     notify();
     return singer;
+  }
+
+  /** Onde um cantor novo entra na lista, conforme o tipo de rodízio. */
+  function newSingerIndex() {
+    const cur = singers.findIndex(s => s.id === currentSingerId);
+    const endOfRound = cur > 0 ? cur : singers.length; // logo antes do da vez
+    if (rotationMode !== 'fit') return endOfRound;
+    // Quem vem depois do da vez, na ordem da rodada.
+    const upcoming = singers.slice(cur + 1).concat(singers.slice(0, cur));
+    let after = FIT_MIN_WAIT - 1; // quantos cantam antes dele
+    upcoming.forEach((s, i) => { if (s.history.length === 0) after = Math.max(after, i + 1); });
+    if (after >= upcoming.length) return endOfRound;
+    const anchor = after === 0 ? singers[cur] : upcoming[after - 1];
+    return singers.indexOf(anchor) + 1;
+  }
+
+  function setSingerTable(id, table) {
+    const singer = findSinger(id);
+    if (singer) { singer.table = table || null; notify(); }
+  }
+
+  function setRotationMode(mode) {
+    if (!ROTATION_MODES.includes(mode)) return;
+    if (mode !== rotationMode) singers.forEach(s => { delete s.turnRound; }); // a regra da mesa começa do zero
+    rotationMode = mode;
+    notify();
   }
 
   function renameSinger(id, newName) {
@@ -165,6 +207,48 @@ function createSingerManager({ onChange }) {
     return singers[nextIdx].id;
   }
 
+  /**
+   * Próximo cantor respeitando o tipo de rodízio. `sim` guarda a volta e
+   * quem já cantou (dá pra simular a prévia sem mexer no estado real):
+   * { round, sangIn(id) -> volta em que cantou, sung(id) -> quantas cantou }.
+   * Retorna o id e atualiza sim.round se passou do último pro primeiro.
+   */
+  function nextInRotation(fromId, sim) {
+    if (singers.length === 0) return null;
+    let idx = singers.findIndex(s => s.id === fromId);
+    if (rotationMode !== 'table') return singers[(idx + 1) % singers.length].id;
+    for (let step = 0; step < singers.length * 2 + 1; step++) {
+      const nextIdx = (idx + 1) % singers.length;
+      if (nextIdx <= idx) sim.round++; // passou do último pro primeiro: nova volta
+      idx = nextIdx;
+      const c = singers[idx];
+      if (!c.table) return c.id;
+      const mates = singers.filter(s => s.table === c.table);
+      const used = mates.filter(s => sim.sangIn(s.id) === sim.round).length;
+      // Na mesa, cantam primeiro os que cantaram menos (empate: ordem da lista).
+      const waiting = mates.filter(s => sim.sangIn(s.id) !== sim.round)
+        .sort((a, b) => (sim.sung(a.id) - sim.sung(b.id)) || (singers.indexOf(a) - singers.indexOf(b)));
+      if (waiting.indexOf(c) < TABLE_MAX_PER_ROUND - used) return c.id;
+    }
+    return singers[(singers.findIndex(s => s.id === fromId) + 1) % singers.length].id;
+  }
+
+  /** Estado real pro nextInRotation. */
+  function liveSim() {
+    return {
+      round,
+      sangIn: (id) => { const s = findSinger(id); return s ? s.turnRound : undefined; },
+      sung: (id) => { const s = findSinger(id); return s ? s.history.length : 0; },
+    };
+  }
+
+  /** Passa a vez pro próximo (com a regra do rodízio) e guarda a volta. */
+  function advanceFrom(id) {
+    const sim = liveSim();
+    currentSingerId = nextInRotation(id, sim);
+    round = sim.round;
+  }
+
   function getCurrentSinger() {
     return findSinger(currentSingerId);
   }
@@ -189,7 +273,8 @@ function createSingerManager({ onChange }) {
         semitone: playedInfo && playedInfo.semitone || 0,
         timestamp: Date.now(),
       });
-      if (currentSingerId === singerId) currentSingerId = getNextActiveSingerId(singerId);
+      singer.turnRound = round;
+      if (currentSingerId === singerId) advanceFrom(singerId);
     }
     notify();
   }
@@ -199,7 +284,7 @@ function createSingerManager({ onChange }) {
    * cantor continua na rodada. */
   function skipTurn() {
     if (currentSingerId === null || singers.length < 2) return;
-    currentSingerId = getNextActiveSingerId(currentSingerId);
+    advanceFrom(currentSingerId);
     notify();
   }
 
@@ -208,8 +293,19 @@ function createSingerManager({ onChange }) {
     const result = [];
     let id = currentSingerId;
     const seen = new Set();
+    // Simula a rodada: cada um que "canta" na prévia conta pra regra da mesa.
+    const live = liveSim();
+    const sangIn = new Map(), sung = new Map();
+    const sim = {
+      round: live.round,
+      sangIn: (sid) => sangIn.has(sid) ? sangIn.get(sid) : live.sangIn(sid),
+      sung: (sid) => live.sung(sid) + (sung.get(sid) || 0),
+    };
+    const sing = (sid) => { sangIn.set(sid, sim.round); sung.set(sid, (sung.get(sid) || 0) + 1); };
+    if (id !== null) sing(id);
     for (let i = 0; i < count; i++) {
-      const nextId = getNextActiveSingerId(id);
+      const nextId = nextInRotation(id, sim);
+      if (nextId !== null) sing(nextId);
       if (nextId === null || seen.has(nextId) || nextId === currentSingerId) break;
       seen.add(nextId);
       result.push(findSinger(nextId));
@@ -219,7 +315,7 @@ function createSingerManager({ onChange }) {
   }
 
   function serialize() {
-    return { singers, currentSingerId, idCounter };
+    return { singers, currentSingerId, idCounter, rotationMode, round };
   }
 
   function restore(data) {
@@ -227,12 +323,16 @@ function createSingerManager({ onChange }) {
     singers = data.singers || [];
     currentSingerId = data.currentSingerId || null;
     idCounter = data.idCounter || 0;
+    rotationMode = ROTATION_MODES.includes(data.rotationMode) ? data.rotationMode : 'arrival';
+    round = data.round || 0;
     notify();
   }
 
   function reset() {
     singers = [];
     currentSingerId = null;
+    rotationMode = 'arrival';
+    round = 0;
     notify();
   }
 
@@ -242,6 +342,7 @@ function createSingerManager({ onChange }) {
     addSongToSinger, removeSongFromSinger, reorderSongInSinger, replaceSong,
     getCurrentSinger, completeTurn, skipTurn,
     getUpcomingSingers, getNextActiveSingerId,
+    setRotationMode, getRotationMode: () => rotationMode, setSingerTable,
     getAllSingers: () => singers,
     nameExists,
     serialize, restore, reset,

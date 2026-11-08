@@ -1,6 +1,6 @@
 // ?v= igual ao do index.html: muda a cada versão pra o navegador não usar
 // um arquivo velho do cache (o GitHub Pages manda guardar por 10 min).
-import { AudioEngine } from './audio-engine.js?v=3.0.6';
+import { AudioEngine } from './audio-engine.js?v=3.1.0';
 
 const el = (id) => document.getElementById(id);
 
@@ -112,6 +112,7 @@ const detailSingerName = el('detail-singer-name');
 const detailEditNameBtn = el('detail-edit-name-btn');
 const detailSingNextBtn = el('detail-sing-next-btn');
 const detailSingLastBtn = el('detail-sing-last-btn');
+const detailTableBtn = el('detail-table-btn');
 const detailTabQueueBtn = el('detail-tab-queue-btn');
 const detailTabHistoryBtn = el('detail-tab-history-btn');
 const detailQueuePanel = el('detail-queue-panel');
@@ -2657,7 +2658,7 @@ const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
 
 const singerManager = window.createSingerManager({
   onChange: () => {
-    renderSingerRoundView(); persistSingers(); scheduleShowTurnSync();
+    renderSingerRoundView(); persistSingers(); scheduleShowTurnSync(); syncRotationModeSeg();
     if (singerModeEnabled) updateNextBtnState();
     if (singerModeEnabled && playlistRestoreDone) updateIdleOverlay(); // cartão "A seguir" acompanha a rodada
   },
@@ -2729,7 +2730,7 @@ showModeBtn.addEventListener('click', () => {
   if (!singerModeEnabled) {
     const alreadyDismissed = localStorage.getItem(SHOW_WELCOME_HIDE_KEY) === 'true';
     if (alreadyDismissed) {
-      actuallyEnableSingerMode();
+      rotationModeBackdrop.classList.remove('hidden');
     } else {
       welcomeDontShowAgain.checked = false;
       showModeWelcomeBackdrop.classList.remove('hidden');
@@ -2747,8 +2748,53 @@ welcomeStartBtn.addEventListener('click', () => {
     try { localStorage.setItem(SHOW_WELCOME_HIDE_KEY, 'true'); } catch (err) {}
   }
   showModeWelcomeBackdrop.classList.add('hidden');
-  actuallyEnableSingerMode();
+  rotationModeBackdrop.classList.remove('hidden');
 });
+
+// Tipo de rodízio: perguntado a cada show novo; o show começa ao escolher.
+const rotationModeBackdrop = el('rotation-mode-backdrop');
+rotationModeBackdrop.querySelectorAll('.rot-mode').forEach(btn => btn.addEventListener('click', () => {
+  rotationModeBackdrop.classList.add('hidden');
+  singerManager.setRotationMode(btn.dataset.mode);
+  actuallyEnableSingerMode();
+}));
+el('rotation-cancel-btn').addEventListener('click', () => rotationModeBackdrop.classList.add('hidden'));
+rotationModeBackdrop.addEventListener('click', (e) => {
+  if (e.target === rotationModeBackdrop) rotationModeBackdrop.classList.add('hidden');
+});
+
+// Configurações: trocar o tipo no meio do show (vale pra quem chegar depois).
+const rotationModeSeg = el('rotation-mode-seg');
+function syncRotationModeSeg() {
+  const mode = singerManager.getRotationMode();
+  rotationModeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+}
+rotationModeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  singerManager.setRotationMode(b.dataset.mode);
+  if (!manageSingersBackdrop.classList.contains('hidden')) {
+    renderManageSingersList();
+    if (selectedManageSingerId) renderManageSingerDetail(selectedManageSingerId);
+  }
+}));
+syncRotationModeSeg();
+
+/** Modo mesa: pergunta a mesa de um cantor (vazio = sem mesa). */
+async function askSingerTable(name, current) {
+  const v = await showPromptModal(window.i18n.t('prompt_singer_table', { name }), current ? String(current) : '');
+  if (v === null) return undefined; // cancelou
+  const n = parseInt(v, 10);
+  return n > 0 ? n : null;
+}
+
+/** Selo "M4" do cantor no modo mesa. */
+function tableChip(singer) {
+  if (singerManager.getRotationMode() !== 'table' || !singer.table) return null;
+  const chip = document.createElement('span');
+  chip.className = 'table-chip';
+  chip.textContent = window.i18n.t('table_short', { n: singer.table });
+  chip.title = window.i18n.t('table_label', { n: singer.table });
+  return chip;
+}
 showModeWelcomeBackdrop.addEventListener('click', (e) => {
   if (e.target === showModeWelcomeBackdrop) showModeWelcomeBackdrop.classList.add('hidden');
 });
@@ -2797,6 +2843,8 @@ function renderSingerRoundView() {
     songCountBadge.className = 'count' + (s.songs.length === 0 ? ' empty' : '');
     songCountBadge.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER}`;
     nameLine.appendChild(nameText);
+    const tChip = tableChip(s);
+    if (tChip) nameLine.appendChild(tChip);
     nameLine.appendChild(songCountBadge);
     if (isActive) {
       // CANTANDO enquanto toca; antes de começar, é quem vem a seguir.
@@ -3104,6 +3152,17 @@ function openSingerPickerModal(file) {
     renderSingerPickerList();
     singerPickerBackdrop.classList.remove('hidden');
     singerPickerInput.focus();
+  }).then(async (choice) => {
+    // Modo mesa: cantor novo já nasce com a mesa (pergunta logo depois do nome).
+    if (!choice || !choice.isNew || singerManager.getRotationMode() !== 'table') return choice;
+    const table = await askSingerTable(choice.singerId);
+    if (table === undefined) return null;
+    try {
+      return { singerId: singerManager.addSinger(choice.singerId, { table }).id, isNew: false };
+    } catch (err) {
+      showError(err.message);
+      return null;
+    }
   });
 }
 
@@ -3285,11 +3344,15 @@ function persistSingers() {
         ...(song.type === 'youtube' ? { videoId: song.videoId, thumbnail: song.thumbnail, channel: song.channel } : {}),
       })),
       history: s.history,
+      table: s.table || null,
+      turnRound: s.turnRound,
     }));
     localStorage.setItem(SINGERS_STORAGE_KEY, JSON.stringify({
       enabled: singerModeEnabled,
       idCounter: raw.idCounter,
       currentSingerId: raw.currentSingerId,
+      rotationMode: raw.rotationMode,
+      round: raw.round,
       singers: safeSingers,
     }));
   } catch (err) {
@@ -3335,7 +3398,7 @@ async function restoreSingersFromStorage() {
     restoredSingers.push({ ...s, songs });
   }
 
-  const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, singers: restoredSingers };
+  const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, rotationMode: saved.rotationMode, round: saved.round, singers: restoredSingers };
   singerManager.restore(snapshot);
 
   // Resolve o `file` de verdade (async) pras músicas restauradas da Biblioteca.
@@ -3503,6 +3566,8 @@ function renderManageSingersList() {
     const nameEl = document.createElement('span');
     nameEl.textContent = s.name;
     nameLine.appendChild(nameEl);
+    const tChip = tableChip(s);
+    if (tChip) nameLine.appendChild(tChip);
     if (current && current.id === s.id) {
       const dot = document.createElement('span');
       dot.className = 'dotnow';
@@ -3542,8 +3607,14 @@ function renderManageSingersList() {
 async function promptAddSinger() {
   const name = await showPromptModal(window.i18n.t('prompt_new_singer_name'));
   if (!name || !name.trim()) return null;
+  let table = null;
+  if (singerManager.getRotationMode() === 'table') {
+    if (singerManager.nameExists(name)) { showError(window.i18n.t('err_singer_name_duplicate')); return null; }
+    table = await askSingerTable(name.trim());
+    if (table === undefined) return null;
+  }
   try {
-    return singerManager.addSinger(name);
+    return singerManager.addSinger(name, { table });
   } catch (err) {
     showError(err.message);
     return null;
@@ -3571,9 +3642,21 @@ function renderManageSingerDetail(singerId) {
   const isCurrent = !!(current && current.id === singer.id);
   detailSingNextBtn.disabled = isCurrent;
   detailSingLastBtn.disabled = isCurrent;
+  detailTableBtn.classList.toggle('hidden', singerManager.getRotationMode() !== 'table');
+  detailTableBtn.textContent = singer.table ? window.i18n.t('table_label', { n: singer.table }) : window.i18n.t('table_none');
   renderDetailQueueList(singer);
   renderDetailHistoryList(singer);
 }
+
+detailTableBtn.addEventListener('click', async () => {
+  const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
+  if (!singer) return;
+  const table = await askSingerTable(singer.name, singer.table);
+  if (table === undefined) return;
+  singerManager.setSingerTable(singer.id, table);
+  renderManageSingersList();
+  renderManageSingerDetail(singer.id);
+});
 
 // "Próximo a cantar" / "Pro final da fila": logo depois / logo antes do cantor da vez.
 for (const [btn, move] of [[detailSingNextBtn, 'moveSingerNext'], [detailSingLastBtn, 'moveSingerLast']]) {

@@ -421,6 +421,15 @@
 
   /* Boas-vindas */
   .steps{ display:flex; flex-direction:column; gap:10px; }
+  .rot-modes{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:640px){ .rot-modes{ grid-template-columns:1fr; } }
+  .rot-mode{ display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; padding:20px 14px 16px; border-radius:14px; border:1px solid var(--line-2); background:var(--glass-2); color:var(--text); cursor:pointer; font:inherit; }
+  .rot-mode:hover, .rot-mode:focus-visible{ border-color:var(--violet); background:var(--glass-3); outline:none; }
+  .rot-mode svg{ width:34px; height:34px; color:var(--accent-text); }
+  .rot-t{ font-size:15px; font-weight:700; }
+  .rot-d{ font-size:12.5px; line-height:1.45; color:var(--text-2); }
+  .rot-tag{ margin-top:auto; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-text); }
+  .table-chip{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-2); border:1px solid var(--line-2); border-radius:6px; padding:0 5px; margin-left:6px; }
   .step{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; line-height:1.5; color:var(--text-2); }
   .step b, .step strong{ color:var(--text); }
   .step .no{ width:26px; height:26px; border-radius:50%; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; flex-shrink:0; }
@@ -719,7 +728,7 @@
     <div class="mgr-right">
       <div id="manage-singers-empty" data-i18n="manage_singers_select_hint">Select a singer from the list on the left.</div>
       <div id="manage-singers-detail" class="hidden">
-        <div class="mgr-name"><h4 id="detail-singer-name">—</h4><button class="icon-btn" id="detail-edit-name-btn" type="button" data-i18n-title="edit_name_title" title="Rename"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.9 4.5 1.7-1.7a1.9 1.9 0 1 1 2.6 2.6L10.6 16a4.5 4.5 0 0 1-1.9 1.1L6 18l.8-2.7a4.5 4.5 0 0 1 1.1-1.9l9-8.9Zm0 0 2.6 2.6"/></svg></button><span class="chip is-now hidden" id="detail-singing-chip" data-i18n="singing_chip">SINGING</span><span class="mgr-move"><button class="btn sm ghost" id="detail-sing-next-btn" type="button" data-i18n="sing_next_btn" data-i18n-title="sing_next_title" title="Right after the current singer">Sing next</button><button class="btn sm ghost" id="detail-sing-last-btn" type="button" data-i18n="sing_last_btn" data-i18n-title="sing_last_title" title="Sings last in the round">Move to end</button></span></div>
+        <div class="mgr-name"><h4 id="detail-singer-name">—</h4><button class="icon-btn" id="detail-edit-name-btn" type="button" data-i18n-title="edit_name_title" title="Rename"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.9 4.5 1.7-1.7a1.9 1.9 0 1 1 2.6 2.6L10.6 16a4.5 4.5 0 0 1-1.9 1.1L6 18l.8-2.7a4.5 4.5 0 0 1 1.1-1.9l9-8.9Zm0 0 2.6 2.6"/></svg></button><span class="chip is-now hidden" id="detail-singing-chip" data-i18n="singing_chip">SINGING</span><button class="btn sm ghost hidden" id="detail-table-btn" type="button" data-i18n-title="table_edit_title" title="Change table"></button><span class="mgr-move"><button class="btn sm ghost" id="detail-sing-next-btn" type="button" data-i18n="sing_next_btn" data-i18n-title="sing_next_title" title="Right after the current singer">Sing next</button><button class="btn sm ghost" id="detail-sing-last-btn" type="button" data-i18n="sing_last_btn" data-i18n-title="sing_last_title" title="Sings last in the round">Move to end</button></span></div>
         <div class="mgr-tabs"><div class="seg" style="display:inline-flex">
           <button type="button" class="on" id="detail-tab-queue-btn" data-i18n="manage_singers_tab_queue">Waiting queue</button>
           <button type="button" id="detail-tab-history-btn" data-i18n="manage_singers_tab_history">Songs sung</button>
@@ -758,12 +767,25 @@
     <p data-i18n="welcome_intro">The queue becomes a rotation of <strong>singers</strong>, each with up to 5 songs. The turn moves to the next singer on its own.</p>
     <div class="steps">
       <div class="step"><span class="no">1</span><span data-i18n="welcome_step1">Add music as usual — you'll be asked <strong>who it's for</strong>. Type a new name to create the singer.</span></div>
-      <div class="step"><span class="no">2</span><span data-i18n="welcome_step2">Singers join the rotation in the order they're added. Drag to reorder.</span></div>
+      <div class="step"><span class="no">2</span><span data-i18n="welcome_step2">Next you choose the rotation type (order of arrival, fit in or by table). Drag or click the number to reorder.</span></div>
       <div class="step"><span class="no">3</span><span data-i18n="welcome_step3">Hit play. Use <strong>Change song</strong> for last-minute requests and <strong>Manage singers</strong> for everything else.</span></div>
     </div>
     <label class="chk"><input type="checkbox" id="welcome-dont-show-again"/><span data-i18n="welcome_dont_show_again">Don't show this again</span></label>
   </div>
   <div class="dlg-foot"><button class="btn" id="welcome-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button><button class="btn primary" id="welcome-start-btn" type="button" data-i18n="welcome_start_btn">Got it, start Show Mode</button></div>
+</div></div>
+
+<!-- Tipo de rodízio (ao iniciar o Modo Show) -->
+<div class="modal-back hidden" id="rotation-mode-backdrop"><div class="dlg" style="width:min(780px,100%)">
+  <div class="dlg-head"><h3 data-i18n="rotation_title">How will the rotation work?</h3></div>
+  <div class="dlg-body">
+    <div class="rot-modes">
+      <button type="button" class="rot-mode" data-mode="arrival"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/></svg><span class="rot-t" data-i18n="rotation_arrival">Order of arrival</span><span class="rot-d" data-i18n="rotation_arrival_desc">Newcomers sing last in the current round, after everyone who was already waiting.</span><span class="rot-tag" data-i18n="rotation_default">Default</span></button>
+      <button type="button" class="rot-mode" data-mode="fit"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75 3.75m0 0-3.75 3.75m3.75-3.75H3.74V4.499"/></svg><span class="rot-t" data-i18n="rotation_fit">Fit in</span><span class="rot-d" data-i18n="rotation_fit_desc">Newcomers go about 5 songs after the current singer, but never ahead of someone who hasn't sung yet.</span></button>
+      <button type="button" class="rot-mode" data-mode="table"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25h18M5.25 8.25V19.5m13.5-11.25V19.5M8.25 8.25 9 4.5h6l.75 3.75M5.25 14.25h13.5"/></svg><span class="rot-t" data-i18n="rotation_table">By table</span><span class="rot-d" data-i18n="rotation_table_desc">Each singer has a table. At most 2 singers per table each round; the others sing in the next round.</span></button>
+    </div>
+  </div>
+  <div class="dlg-foot"><button class="btn" id="rotation-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button></div>
 </div></div>
 
 <!-- Encerrar show -->
@@ -816,7 +838,7 @@
     <button type="button" data-sec="shortcuts"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.2"/><path stroke-linecap="round" d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9"/></svg><span data-i18n="settings_sec_shortcuts">Shortcuts</span></button>
     <button type="button" data-sec="about"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg><span data-i18n="settings_sec_about">About</span></button>
     <a id="help-link" href="help.html" target="_blank" rel="noopener"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg><span data-i18n="help_link">Help &amp; manual</span><span style="margin-left:auto;opacity:.6">↗</span></a>
-    <div id="version-tag">PlayKaraoke Player v3.0.6</div>
+    <div id="version-tag">PlayKaraoke Player v3.1.0</div>
   </nav>
   <div class="s-main">
     <div class="s-head"><h4 id="settings-title" data-i18n="settings_sec_general">General</h4><button class="close-x" id="settings-close-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
@@ -864,6 +886,8 @@
       </section>
 
       <section class="s-sec" data-sec="show">
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_rotation_title">Rotation type</div><div class="s-d" data-i18n="settings_rotation_desc">Where newcomers go in the rotation. Changing it doesn't move anyone already in the list.</div></div>
+          <div class="seg" id="rotation-mode-seg"><button type="button" data-mode="arrival" data-i18n="rotation_arrival">Order of arrival</button><button type="button" data-mode="fit" data-i18n="rotation_fit">Fit in</button><button type="button" data-mode="table" data-i18n="rotation_table">By table</button></div></div></div>
         <div class="s-card">
           <div class="s-t" style="margin-bottom:4px" data-i18n="settings_waiting_screen">Waiting screen (between singers)</div>
           <div class="s-row"><div class="s-d" style="margin:0;color:var(--text)" data-i18n="settings_show_upcoming">Show upcoming singers</div><button class="sw" id="cd-show-upcoming-indicator" type="button"><span class="toggle-state-text"></span></button></div>
@@ -923,7 +947,7 @@
           <a class="about-btn" href="https://github.com/playkaraoke/PlayKaraokeWebPlayer" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>GitHub</a>
           <a class="about-btn" href="https://br.linkedin.com/in/jorgedomecildes" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.23 0H1.77C.8 0 0 .77 0 1.73v20.54C0 23.23.8 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.2 0 22.23 0Z"/></svg>LinkedIn</a>
         </div>
-        <div class="about-foot">PlayKaraoke Player v3.0.6 · © 2015–2026 Jorge Domecildes · <span data-i18n="about_license">Free for personal, noncommercial use</span> · contatoplaykaraoke@gmail.com</div>
+        <div class="about-foot">PlayKaraoke Player v3.1.0 · © 2015–2026 Jorge Domecildes · <span data-i18n="about_license">Free for personal, noncommercial use</span> · contatoplaykaraoke@gmail.com</div>
       </section>
 
     </div>
@@ -950,16 +974,16 @@
 <audio id="ambient-audio" preload="auto"></audio>
 <audio id="audio-el" preload="auto"></audio>
 
-<script src="js/cdg-player.js?v=3.0.6"></script>
-<script src="js/file-loader.js?v=3.0.6"></script>
-<script src="js/library.js?v=3.0.6"></script>
-<script src="js/i18n.js?v=3.0.6"></script>
-<script src="js/singers.js?v=3.0.6"></script>
-<script src="js/online-search.js?v=3.0.6"></script>
-<script src="js/ambient-playlist.js?v=3.0.6"></script>
-<script src="js/youtube-player.js?v=3.0.6"></script>
-<script src="js/pads.js?v=3.0.6"></script>
-<script type="module" src="js/app.js?v=3.0.6"></script>
+<script src="js/cdg-player.js?v=3.1.0"></script>
+<script src="js/file-loader.js?v=3.1.0"></script>
+<script src="js/library.js?v=3.1.0"></script>
+<script src="js/i18n.js?v=3.1.0"></script>
+<script src="js/singers.js?v=3.1.0"></script>
+<script src="js/online-search.js?v=3.1.0"></script>
+<script src="js/ambient-playlist.js?v=3.1.0"></script>
+<script src="js/youtube-player.js?v=3.1.0"></script>
+<script src="js/pads.js?v=3.1.0"></script>
+<script type="module" src="js/app.js?v=3.1.0"></script>
 
 <script>
   // Preenchimento colorido dos sliders (barra de progresso, volumes): o app
