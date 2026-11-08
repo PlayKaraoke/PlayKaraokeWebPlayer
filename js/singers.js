@@ -87,6 +87,31 @@ function createSingerManager({ onChange }) {
     notify();
   }
 
+  /** Põe o cantor na posição `toIndex` (0 = primeiro); os do caminho andam uma casa. */
+  function moveSinger(id, toIndex) {
+    const from = singers.findIndex(s => s.id === id);
+    if (from === -1) return;
+    const [moved] = singers.splice(from, 1);
+    singers.splice(Math.max(0, Math.min(singers.length, toIndex)), 0, moved);
+    notify();
+  }
+
+  /** Próximo a cantar: logo depois do cantor da vez. */
+  function moveSingerNext(id) {
+    if (id === currentSingerId) return;
+    const rest = singers.filter(s => s.id !== id);
+    moveSinger(id, rest.findIndex(s => s.id === currentSingerId) + 1);
+  }
+
+  /** Último da rodada: logo antes do cantor da vez (a rodada é circular).
+   * Se o da vez é o primeiro da lista, "antes dele" é o fim da lista. */
+  function moveSingerLast(id) {
+    if (id === currentSingerId) return;
+    const rest = singers.filter(s => s.id !== id);
+    const cur = rest.findIndex(s => s.id === currentSingerId);
+    moveSinger(id, cur > 0 ? cur : rest.length);
+  }
+
   /** Adiciona uma música à fila de um cantor (existente ou por nome novo). */
   function addSongToSinger(singerIdOrNewName, isNewName, song) {
     let singer;
@@ -213,6 +238,7 @@ function createSingerManager({ onChange }) {
 
   return {
     addSinger, renameSinger, removeSinger, reorderSinger,
+    moveSinger, moveSingerNext, moveSingerLast,
     addSongToSinger, removeSongFromSinger, reorderSongInSinger, replaceSong,
     getCurrentSinger, completeTurn, skipTurn,
     getUpcomingSingers, getNextActiveSingerId,

@@ -225,3 +225,88 @@ test('cantor da vez com música carregada mas sem começar: Próxima pula a vez 
   assert.equal(t.showHistory.length, 0);
   assert.equal(t.playlist[0].artist, 'Bia');
 });
+
+// ---- Mudar a posição sem as setas (show com 30 cantores) ----
+
+/** Show com Ana, Bia, Caio, Duda, Edu; a vez já passou pra Caio. */
+async function showWith5SingersCaioCurrent() {
+  const ctx = await showWith3Singers();
+  ctx.t.singerManager.addSinger('Duda');
+  ctx.t.singerManager.addSinger('Edu');
+  ctx.t.singerManager.skipTurn();
+  ctx.t.singerManager.skipTurn();
+  await flush();
+  return ctx;
+}
+const idOf = (t, name) => t.singerManager.getAllSingers().find(s => s.name === name).id;
+
+test('digitar a posição no número do cantor (lista do Modo Show) move e os do caminho descem', async () => {
+  const { win, t } = await showWith5SingersCaioCurrent();
+  const badge = win.document.querySelector(`#singer-list-full .row[data-singer-id="${idOf(t, 'Edu')}"] .pos`);
+  badge.click();
+  const input = badge.querySelector('input');
+  assert.equal(input.value, '5');
+  input.value = '2';
+  input.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.deepEqual(names(t), ['Ana', 'Edu', 'Bia', 'Caio', 'Duda']);
+  assert.equal(current(t), 'Caio');
+});
+
+test('número da posição: Esc cancela, 0 cancela, acima do total vai pro último; o da vez não edita', async () => {
+  const { win, t } = await showWith5SingersCaioCurrent();
+  const badgeOf = (name) => win.document.querySelector(`#singer-list-full .row[data-singer-id="${idOf(t, name)}"] .pos`);
+  const type = (name, value, key = 'Enter') => {
+    badgeOf(name).click();
+    const input = badgeOf(name).querySelector('input');
+    input.value = value;
+    input.dispatchEvent(new win.KeyboardEvent('keydown', { key, bubbles: true }));
+  };
+  type('Ana', '4', 'Escape');
+  type('Ana', '0');
+  assert.deepEqual(names(t), ['Ana', 'Bia', 'Caio', 'Duda', 'Edu']);
+  type('Ana', '50');
+  assert.deepEqual(names(t), ['Bia', 'Caio', 'Duda', 'Edu', 'Ana']);
+  badgeOf('Caio').click();
+  assert.equal(badgeOf('Caio').querySelector('input'), null, 'cantor da vez não deveria ser editável na lista');
+});
+
+test('Próximo a cantar / Pro final da fila: logo depois / logo antes do cantor da vez', async () => {
+  const { t } = await showWith5SingersCaioCurrent();
+  t.singerManager.moveSingerNext(idOf(t, 'Ana'));
+  assert.deepEqual(names(t), ['Bia', 'Caio', 'Ana', 'Duda', 'Edu']);
+  t.singerManager.moveSingerLast(idOf(t, 'Duda'));
+  assert.deepEqual(names(t), ['Bia', 'Duda', 'Caio', 'Ana', 'Edu']);
+  assert.deepEqual(Array.from(t.singerManager.getUpcomingSingers(4), s => s.name), ['Ana', 'Edu', 'Bia', 'Duda']);
+  t.singerManager.moveSingerNext(idOf(t, 'Caio')); // o da vez: nada muda
+  assert.deepEqual(names(t), ['Bia', 'Duda', 'Caio', 'Ana', 'Edu']);
+});
+
+test('Pro final da fila com o da vez em 1º (show nem começou): vai pro fim da lista', async () => {
+  const { t } = await showWith3Singers();
+  t.singerManager.moveSingerLast(idOf(t, 'Bia'));
+  assert.deepEqual(names(t), ['Ana', 'Caio', 'Bia']);
+  t.singerManager.moveSingerNext(idOf(t, 'Bia'));
+  assert.deepEqual(names(t), ['Ana', 'Bia', 'Caio']);
+});
+
+test('Gerenciar Cantores: botões movem o cantor e ficam desativados no cantor da vez', async () => {
+  const { win, t } = await showWith5SingersCaioCurrent();
+  const doc = win.document;
+  doc.querySelector(`#singer-list-full .row[data-singer-id="${idOf(t, 'Edu')}"] .nm`).click(); // abre o Gerenciar no Edu
+  doc.getElementById('detail-sing-next-btn').click();
+  assert.deepEqual(names(t), ['Ana', 'Bia', 'Caio', 'Edu', 'Duda']);
+  assert.equal(doc.querySelectorAll('#manage-singers-list .ms .nm > span:first-child')[3].textContent, 'Edu', 'lista do Gerenciar não atualizou');
+  doc.getElementById('detail-sing-last-btn').click();
+  assert.deepEqual(names(t), ['Ana', 'Bia', 'Edu', 'Caio', 'Duda']);
+  doc.querySelectorAll('#manage-singers-list .ms')[3].click(); // Caio, o da vez
+  assert.equal(doc.getElementById('detail-sing-next-btn').disabled, true);
+  assert.equal(doc.getElementById('detail-sing-last-btn').disabled, true);
+  // número editável também no Gerenciar (inclusive o da vez)
+  const pos = doc.querySelectorAll('#manage-singers-list .ms .p')[3];
+  pos.click();
+  const input = pos.querySelector('input');
+  input.value = '1';
+  input.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.deepEqual(names(t), ['Caio', 'Ana', 'Bia', 'Edu', 'Duda']);
+  assert.equal(doc.querySelectorAll('#manage-singers-list .ms .p')[0].nextSibling.querySelector('.nm > span').textContent, 'Caio');
+});

@@ -1,6 +1,6 @@
 // ?v= igual ao do index.html: muda a cada versão pra o navegador não usar
 // um arquivo velho do cache (o GitHub Pages manda guardar por 10 min).
-import { AudioEngine } from './audio-engine.js?v=3.0.5';
+import { AudioEngine } from './audio-engine.js?v=3.0.6';
 
 const el = (id) => document.getElementById(id);
 
@@ -110,6 +110,8 @@ const manageSingersEmpty = el('manage-singers-empty');
 const manageSingersDetail = el('manage-singers-detail');
 const detailSingerName = el('detail-singer-name');
 const detailEditNameBtn = el('detail-edit-name-btn');
+const detailSingNextBtn = el('detail-sing-next-btn');
+const detailSingLastBtn = el('detail-sing-last-btn');
 const detailTabQueueBtn = el('detail-tab-queue-btn');
 const detailTabHistoryBtn = el('detail-tab-history-btn');
 const detailQueuePanel = el('detail-queue-panel');
@@ -560,6 +562,50 @@ function rowActionBtn(icon, title, disabled, onClick) {
   b.disabled = !!disabled;
   b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
   return b;
+}
+
+/** Número da posição do cantor clicável: vira caixinha, digita a nova
+ * posição e Enter move (Esc/clicar fora cancela). Com 30 cantores, as
+ * setas davam cliques demais. */
+function makeSingerPositionEditable(badge, singerId, index, onMoved) {
+  badge.classList.add('pos-edit');
+  badge.title = window.i18n.t('position_edit_title');
+  badge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (badge.querySelector('input')) return;
+    const row = badge.parentElement;
+    const wasDraggable = row.draggable;
+    row.draggable = false; // senão selecionar o texto arrasta a linha
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.className = 'pos-input';
+    input.value = String(index + 1);
+    input.setAttribute('aria-label', window.i18n.t('position_edit_title'));
+    badge.textContent = '';
+    badge.appendChild(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const n = parseInt(input.value, 10);
+      badge.textContent = String(index + 1);
+      row.draggable = wasDraggable;
+      if (commit && n >= 1 && n - 1 !== index) { // acima do total, moveSinger põe no fim
+        singerManager.moveSinger(singerId, n - 1);
+        if (onMoved) onMoved();
+      }
+    };
+    input.addEventListener('click', (ev) => ev.stopPropagation());
+    input.addEventListener('keydown', (ev) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(false));
+  });
 }
 
 /** Selo TOCANDO/CANTANDO da linha ativa (visível só enquanto toca). */
@@ -2738,6 +2784,7 @@ function renderSingerRoundView() {
     const posBadge = document.createElement('span');
     posBadge.className = 'pos';
     posBadge.textContent = String(i + 1);
+    if (!isActive) makeSingerPositionEditable(posBadge, s.id, i);
 
     const meta = document.createElement('div');
     meta.style.minWidth = '0';
@@ -3447,6 +3494,7 @@ function renderManageSingersList() {
     const pos = document.createElement('span');
     pos.className = 'p';
     pos.textContent = String(i + 1);
+    makeSingerPositionEditable(pos, s.id, i, renderManageSingersList);
 
     const info = document.createElement('div');
     info.style.minWidth = '0';
@@ -3520,8 +3568,20 @@ function renderManageSingerDetail(singerId) {
   detailSingerName.textContent = singer.name;
   const current = singerManager.getCurrentSinger();
   el('detail-singing-chip').classList.toggle('hidden', !(current && current.id === singer.id && isAnythingPlaying()));
+  const isCurrent = !!(current && current.id === singer.id);
+  detailSingNextBtn.disabled = isCurrent;
+  detailSingLastBtn.disabled = isCurrent;
   renderDetailQueueList(singer);
   renderDetailHistoryList(singer);
+}
+
+// "Próximo a cantar" / "Pro final da fila": logo depois / logo antes do cantor da vez.
+for (const [btn, move] of [[detailSingNextBtn, 'moveSingerNext'], [detailSingLastBtn, 'moveSingerLast']]) {
+  btn.addEventListener('click', () => {
+    if (!selectedManageSingerId) return;
+    singerManager[move](selectedManageSingerId);
+    renderManageSingersList();
+  });
 }
 
 detailEditNameBtn.addEventListener('click', async () => {
