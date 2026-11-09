@@ -503,14 +503,11 @@ class CDGPlayer {
       this.dirtyTiles.clear();
     }
 
-    // Escala o buffer 300x216 para o tamanho real do canvas visível,
-    // preenchendo primeiro com a cor de borda. Esse passo é barato
-    // (aceleração de GPU) e roda todo frame em que algo mudou.
+    // Escala o buffer 300x216 para o tamanho real do canvas visível. Sem
+    // preencher antes: o drawImage abaixo cobre o canvas inteiro com pixels
+    // opacos, e o preenchimento dobrava o trabalho da Intel HD a cada quadro.
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const borderRGB = this.customColors ? this.customColors.background : (this.palette[this.borderColor] || [0, 0, 0]);
-    this.ctx.fillStyle = `rgb(${borderRGB[0]},${borderRGB[1]},${borderRGB[2]})`;
-    this.ctx.fillRect(0, 0, w, h);
 
     // O CDG nasceu em 300x216 (padrão de TV dos anos 90) — nunca vai ter
     // "alta definição" de verdade. 'sharp' mantém os pixels nítidos (jeito

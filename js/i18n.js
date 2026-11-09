@@ -162,6 +162,13 @@ const TRANSLATIONS = {
     library_reconnect_needed: 'Reconnection needed',
     pill_autoplay_on_title: 'Autoplay on — waits {delay}s between songs',
     move_up_title: 'Move up',
+    err_library_song_pending: 'This song is in a Library folder that needs to be reconnected (Settings → Library → Reconnect), or the drive is unplugged.',
+    err_library_songs_pending: '{count} Library song(s) are waiting for the folder to be reconnected (Settings → Library). They stay in the queue.',
+    away_btn: 'Away',
+    away_back_btn: "They're back",
+    away_title: "Stays in the list, but their turn is skipped until they're back",
+    away_chip: 'Away',
+    confirm_new_show: "Start a new show? Tonight's singers, queue and report will be erased. Export the CSV first if you want to keep it.",
     rotation_title: 'How will the rotation work?',
     rotation_default: 'Default',
     rotation_arrival: 'Order of arrival',
@@ -470,6 +477,13 @@ const TRANSLATIONS = {
     library_reconnect_needed: 'Reconexão necessária',
     pill_autoplay_on_title: 'Autoplay ligado — aguarda {delay}s entre músicas',
     move_up_title: 'Mover pra cima',
+    err_library_song_pending: 'Essa música está numa pasta da Biblioteca que precisa ser reconectada (Configurações → Biblioteca → Reconectar), ou o HD está desconectado.',
+    err_library_songs_pending: '{count} música(s) da Biblioteca aguardando a pasta ser reconectada (Configurações → Biblioteca). Elas continuam na fila.',
+    away_btn: 'Ausente',
+    away_back_btn: 'Voltou',
+    away_title: 'Continua na lista, mas a vez dele é pulada até voltar',
+    away_chip: 'Ausente',
+    confirm_new_show: 'Começar um novo show? Os cantores, a fila e o relatório desta noite serão apagados. Exporte o CSV antes se quiser guardar.',
     rotation_title: 'Como vai ser o rodízio?',
     rotation_default: 'Padrão',
     rotation_arrival: 'Ordem de chegada',
@@ -649,7 +663,8 @@ const TRANSLATIONS = {
 };
 
 const LANG_STORAGE_KEY = 'playkaraoke-language';
-let currentLang = localStorage.getItem(LANG_STORAGE_KEY) || 'en';
+let currentLang = 'en';
+try { currentLang = localStorage.getItem(LANG_STORAGE_KEY) || 'en'; } catch (err) {} // dados do site bloqueados: segue em inglês
 if (!TRANSLATIONS[currentLang]) currentLang = 'en';
 
 function t(key, vars) {

@@ -103,20 +103,26 @@ function createLibraryIndexCore(post, idb, parseName) {
 
     async function walk(dirHandle, relPath) {
       let myIdx = dirPaths.get(relPath);
-      for await (const entry of dirHandle.values()) {
-        if (cancelled.has(folderId)) return;
-        if (entry.name.startsWith('.') || entry.name === '__MACOSX') continue; // ocultos de sistema
-        if (entry.kind === 'directory') {
-          const childPath = relPath ? relPath + '/' + entry.name : entry.name;
-          dirPaths.set(childPath, f.dirs.length);
-          f.dirs.push(childPath);
-          await walk(entry, childPath);
-        } else if (entry.kind === 'file' && isKaraokeFile(entry.name)) {
-          f.names.push(entry.name);
-          f.dirIdx.push(myIdx);
-          f.texts.push(textFor(entry.name));
-          if (f.names.length % LIB_PROGRESS_EVERY === 0) post({ type: 'progress', folderId, count: f.names.length });
+      // Uma subpasta ilegível ("System Volume Information", sem permissão,
+      // HD piscando) é pulada; antes derrubava o escaneamento inteiro.
+      try {
+        for await (const entry of dirHandle.values()) {
+          if (cancelled.has(folderId)) return;
+          if (entry.name.startsWith('.') || entry.name === '__MACOSX') continue; // ocultos de sistema
+          if (entry.kind === 'directory') {
+            const childPath = relPath ? relPath + '/' + entry.name : entry.name;
+            dirPaths.set(childPath, f.dirs.length);
+            f.dirs.push(childPath);
+            await walk(entry, childPath);
+          } else if (entry.kind === 'file' && isKaraokeFile(entry.name)) {
+            f.names.push(entry.name);
+            f.dirIdx.push(myIdx);
+            f.texts.push(textFor(entry.name));
+            if (f.names.length % LIB_PROGRESS_EVERY === 0) post({ type: 'progress', folderId, count: f.names.length });
+          }
         }
+      } catch (err) {
+        if (relPath === '') throw err; // a própria pasta escolhida falhou: aí é erro de verdade
       }
     }
 

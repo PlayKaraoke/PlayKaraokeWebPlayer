@@ -46,6 +46,7 @@ function createSingerManager({ onChange }) {
   let idCounter = 0;
   let rotationMode = 'arrival';
   let round = 0; // modo mesa: conta as voltas na lista (vira ao passar do último pro primeiro)
+  let forcedNextId = null; // "Próximo a cantar": vale uma vez, passa por cima da regra da mesa
 
   function notify() { if (onChange) onChange(); }
 
@@ -81,7 +82,7 @@ function createSingerManager({ onChange }) {
     // Quem vem depois do da vez, na ordem da rodada.
     const upcoming = singers.slice(cur + 1).concat(singers.slice(0, cur));
     let after = FIT_MIN_WAIT - 1; // quantos cantam antes dele
-    upcoming.forEach((s, i) => { if (s.history.length === 0) after = Math.max(after, i + 1); });
+    upcoming.forEach((s, i) => { if (s.history.length === 0 && !s.away) after = Math.max(after, i + 1); });
     if (after >= upcoming.length) return endOfRound;
     const anchor = after === 0 ? singers[cur] : upcoming[after - 1];
     return singers.indexOf(anchor) + 1;
@@ -90,6 +91,16 @@ function createSingerManager({ onChange }) {
   function setSingerTable(id, table) {
     const singer = findSinger(id);
     if (singer) { singer.table = table || null; notify(); }
+  }
+
+  /** Ausente: continua na lista, mas a vez dele é pulada até voltar
+   * (e no modo mesa não segura vaga). */
+  function setSingerAway(id, away) {
+    const singer = findSinger(id);
+    if (!singer) return;
+    singer.away = !!away;
+    if (away && forcedNextId === id) forcedNextId = null;
+    notify();
   }
 
   function setRotationMode(mode) {
@@ -110,11 +121,18 @@ function createSingerManager({ onChange }) {
   function removeSinger(id) {
     const idx = singers.findIndex(s => s.id === id);
     if (idx === -1) return;
-    singers.splice(idx, 1);
+    if (forcedNextId === id) forcedNextId = null;
     if (currentSingerId === id) {
-      // A vez passa pro PRÓXIMO da rodada (quem "escorregou" pra posição
-      // do removido), não pro primeiro da lista.
-      currentSingerId = singers.length > 0 ? singers[idx % singers.length].id : null;
+      // A vez passa pro PRÓXIMO da rodada, com a mesma regra do rodízio
+      // (mesa e ausentes), calculado antes de tirar ele da lista.
+      const sim = liveSim();
+      const nextId = nextInRotation(id, sim, id);
+      round = sim.round;
+      forcedNextId = sim.forced;
+      singers.splice(idx, 1);
+      currentSingerId = nextId || (singers.length > 0 ? singers[idx % singers.length].id : null);
+    } else {
+      singers.splice(idx, 1);
     }
     notify();
   }
@@ -135,6 +153,7 @@ function createSingerManager({ onChange }) {
     if (from === -1) return;
     const [moved] = singers.splice(from, 1);
     singers.splice(Math.max(0, Math.min(singers.length, toIndex)), 0, moved);
+    if (forcedNextId === id) forcedNextId = null; // mudou de lugar de novo: vale o novo lugar
     notify();
   }
 
@@ -143,6 +162,7 @@ function createSingerManager({ onChange }) {
     if (id === currentSingerId) return;
     const rest = singers.filter(s => s.id !== id);
     moveSinger(id, rest.findIndex(s => s.id === currentSingerId) + 1);
+    forcedNextId = id; // canta mesmo que a mesa dele já tenha usado as vagas da rodada
   }
 
   /** Último da rodada: logo antes do cantor da vez (a rodada é circular).
@@ -213,30 +233,41 @@ function createSingerManager({ onChange }) {
    * { round, sangIn(id) -> volta em que cantou, sung(id) -> quantas cantou }.
    * Retorna o id e atualiza sim.round se passou do último pro primeiro.
    */
-  function nextInRotation(fromId, sim) {
+  function nextInRotation(fromId, sim, excludeId = null) {
     if (singers.length === 0) return null;
+    const ok = (s) => s.id !== excludeId && !s.away;
+    if (sim.forced) {
+      const f = findSinger(sim.forced);
+      sim.forced = null; // vale uma vez só
+      if (f && ok(f) && f.id !== fromId) return f.id;
+    }
     let idx = singers.findIndex(s => s.id === fromId);
-    if (rotationMode !== 'table') return singers[(idx + 1) % singers.length].id;
     for (let step = 0; step < singers.length * 2 + 1; step++) {
       const nextIdx = (idx + 1) % singers.length;
       if (nextIdx <= idx) sim.round++; // passou do último pro primeiro: nova volta
       idx = nextIdx;
       const c = singers[idx];
-      if (!c.table) return c.id;
-      const mates = singers.filter(s => s.table === c.table);
+      if (!ok(c)) continue;
+      if (rotationMode !== 'table' || !c.table) return c.id;
+      const mates = singers.filter(s => s.table === c.table && ok(s));
       const used = mates.filter(s => sim.sangIn(s.id) === sim.round).length;
-      // Na mesa, cantam primeiro os que cantaram menos (empate: ordem da lista).
-      const waiting = mates.filter(s => sim.sangIn(s.id) !== sim.round)
+      if (used >= TABLE_MAX_PER_ROUND) continue;
+      // Disputam as vagas que sobram só os colegas que ainda vêm nesta volta;
+      // cantam primeiro os que cantaram menos (empate: ordem da lista).
+      const waiting = mates.filter(s => sim.sangIn(s.id) !== sim.round && singers.indexOf(s) >= idx)
         .sort((a, b) => (sim.sung(a.id) - sim.sung(b.id)) || (singers.indexOf(a) - singers.indexOf(b)));
       if (waiting.indexOf(c) < TABLE_MAX_PER_ROUND - used) return c.id;
     }
-    return singers[(singers.findIndex(s => s.id === fromId) + 1) % singers.length].id;
+    // Ninguém disponível (todos ausentes): o mesmo continua, se puder.
+    const from = findSinger(fromId);
+    return from && ok(from) ? from.id : null;
   }
 
   /** Estado real pro nextInRotation. */
   function liveSim() {
     return {
       round,
+      forced: forcedNextId,
       sangIn: (id) => { const s = findSinger(id); return s ? s.turnRound : undefined; },
       sung: (id) => { const s = findSinger(id); return s ? s.history.length : 0; },
     };
@@ -245,8 +276,9 @@ function createSingerManager({ onChange }) {
   /** Passa a vez pro próximo (com a regra do rodízio) e guarda a volta. */
   function advanceFrom(id) {
     const sim = liveSim();
-    currentSingerId = nextInRotation(id, sim);
+    currentSingerId = nextInRotation(id, sim) || id;
     round = sim.round;
+    forcedNextId = sim.forced;
   }
 
   function getCurrentSinger() {
@@ -298,6 +330,7 @@ function createSingerManager({ onChange }) {
     const sangIn = new Map(), sung = new Map();
     const sim = {
       round: live.round,
+      forced: live.forced,
       sangIn: (sid) => sangIn.has(sid) ? sangIn.get(sid) : live.sangIn(sid),
       sung: (sid) => live.sung(sid) + (sung.get(sid) || 0),
     };
@@ -315,7 +348,7 @@ function createSingerManager({ onChange }) {
   }
 
   function serialize() {
-    return { singers, currentSingerId, idCounter, rotationMode, round };
+    return { singers, currentSingerId, idCounter, rotationMode, round, forcedNextId };
   }
 
   function restore(data) {
@@ -325,6 +358,7 @@ function createSingerManager({ onChange }) {
     idCounter = data.idCounter || 0;
     rotationMode = ROTATION_MODES.includes(data.rotationMode) ? data.rotationMode : 'arrival';
     round = data.round || 0;
+    forcedNextId = data.forcedNextId || null;
     notify();
   }
 
@@ -333,6 +367,7 @@ function createSingerManager({ onChange }) {
     currentSingerId = null;
     rotationMode = 'arrival';
     round = 0;
+    forcedNextId = null;
     notify();
   }
 
@@ -342,7 +377,7 @@ function createSingerManager({ onChange }) {
     addSongToSinger, removeSongFromSinger, reorderSongInSinger, replaceSong,
     getCurrentSinger, completeTurn, skipTurn,
     getUpcomingSingers, getNextActiveSingerId,
-    setRotationMode, getRotationMode: () => rotationMode, setSingerTable,
+    setRotationMode, getRotationMode: () => rotationMode, setSingerTable, setSingerAway,
     getAllSingers: () => singers,
     nameExists,
     serialize, restore, reset,

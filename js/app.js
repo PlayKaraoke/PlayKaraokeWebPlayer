@@ -1,6 +1,6 @@
 // ?v= igual ao do index.html: muda a cada versão pra o navegador não usar
 // um arquivo velho do cache (o GitHub Pages manda guardar por 10 min).
-import { AudioEngine } from './audio-engine.js?v=3.1.0';
+import { AudioEngine } from './audio-engine.js?v=3.1.1';
 
 const el = (id) => document.getElementById(id);
 
@@ -113,6 +113,7 @@ const detailEditNameBtn = el('detail-edit-name-btn');
 const detailSingNextBtn = el('detail-sing-next-btn');
 const detailSingLastBtn = el('detail-sing-last-btn');
 const detailTableBtn = el('detail-table-btn');
+const detailAwayBtn = el('detail-away-btn');
 const detailTabQueueBtn = el('detail-tab-queue-btn');
 const detailTabHistoryBtn = el('detail-tab-history-btn');
 const detailQueuePanel = el('detail-queue-panel');
@@ -219,18 +220,34 @@ cdgPlayer.setCustomColors(null);
 let secondScreenPlayer = false; // true = segunda tela aberta, pronta, e tocando a mídia
 
 /** Eventos de um player do YouTube — ignorados se ele não for o ativo. */
+// YouTube só diz "tocando" depois do buffering: nesse meio tempo a música
+// ambiente achava que estava tudo parado e subia por cima do começo.
+let ytStarting = false;
+let ytStartingTimer = null;
+function setYtStarting(on) {
+  ytStarting = on;
+  clearTimeout(ytStartingTimer);
+  if (on) ytStartingTimer = setTimeout(() => { ytStarting = false; refreshIdleState(); }, 15000); // nunca começou
+}
+
 function ytCallbacksFor(getSelf) {
   const active = () => getSelf() === yt();
   return {
-    onPlay: () => { if (!active()) return; updatePlayIcon(); refreshIdleState(); },
-    onPause: () => { if (!active()) return; updatePlayIcon(); refreshIdleState(); },
+    onPlay: () => { if (!active()) return; setYtStarting(false); updatePlayIcon(); refreshIdleState(); },
+    onPause: () => { if (!active()) return; setYtStarting(false); updatePlayIcon(); refreshIdleState(); },
     onEnded: () => {
       if (!active()) return;
+      setYtStarting(false);
       updatePlayIcon();
       if (mode === 'youtube') handleTrackEnded();
       refreshIdleState();
     },
-    onError: () => { if (active() && mode === 'youtube') showError(window.i18n.t('youtube_err_unavailable')); },
+    onError: () => {
+      if (!active()) return;
+      setYtStarting(false);
+      refreshIdleState();
+      if (mode === 'youtube') showError(window.i18n.t('youtube_err_unavailable'));
+    },
     onTime: (currentTime, duration) => {
       if (!active() || mode !== 'youtube') return;
       checkApplause(currentTime, duration);
@@ -597,6 +614,10 @@ function makeSingerPositionEditable(badge, singerId, index, onMoved) {
       if (commit && n >= 1 && n - 1 !== index) { // acima do total, moveSinger põe no fim
         singerManager.moveSinger(singerId, n - 1);
         if (onMoved) onMoved();
+      } else {
+        // Pode ter havido mudança enquanto digitava (redesenho adiado).
+        renderSingerRoundView();
+        refreshManageSingersIfOpen();
       }
     };
     input.addEventListener('click', (ev) => ev.stopPropagation());
@@ -846,7 +867,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   try {
     const result = item.type === 'youtube'
       ? { type: 'youtube', videoId: item.videoId }
-      : await window.loadKaraokeFile(item.file);
+      : await window.loadKaraokeFile(item.file || await resolvePendingLibraryFile(item));
     if (!isCurrent()) return; // uma chamada mais nova já assumiu, descarta essa
     applauseTriggered = false;
     silenceAccumMs = 0;
@@ -936,6 +957,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
 
 /** Para qualquer mídia tocando agora (CDG e/ou vídeo), sem mexer no palco. */
 function stopCurrentMedia() {
+  setYtStarting(false);
   engine.stop();
   if (!videoEl.paused) videoEl.pause();
   if (!audioEl.paused) audioEl.pause();
@@ -982,8 +1004,10 @@ function updateNextBtnState() {
  * tempo realmente cantado) e passa a vez pro próximo cantor. */
 async function endCurrentPerformance() {
   if (!showTurn || mode === null) return;
+  const turn = showTurn;
   const confirmed = await showConfirmModal(window.i18n.t('confirm_end_performance', { name: showTurn.singerName }));
-  if (!confirmed || !showTurn) return;
+  // Se a música acabou com a confirmação aberta, a vez já é de outro: não encerra a dele.
+  if (!confirmed || showTurn !== turn || !performanceStarted()) return;
   const elapsedSec = getCurrentPosition();
   stopCurrentMedia();
   await handleSingerModeSongEnded({ elapsedSec });
@@ -995,7 +1019,7 @@ async function skipCurrentSingerTurn() {
   const singer = singerManager.getCurrentSinger();
   if (!singer) return;
   const confirmed = await showConfirmModal(window.i18n.t('confirm_skip_turn', { name: singer.name }));
-  if (!confirmed || performanceStarted()) return;
+  if (!confirmed || performanceStarted() || singerManager.getCurrentSinger() !== singer) return;
   if (countdownTimerId || singerCountdownActive) cancelCountdown();
   stopCurrentMedia();
   showTurn = null;
@@ -1005,6 +1029,7 @@ async function skipCurrentSingerTurn() {
 }
 
 nextBtn.addEventListener('click', () => {
+  if (isTrackLoading) return; // duplo clique pulava duas músicas
   if (singerModeEnabled) {
     if (showTurn && performanceStarted()) endCurrentPerformance();
     else skipCurrentSingerTurn();
@@ -1360,6 +1385,8 @@ function checkApplause(currentTime, duration) {
   checkSilenceForApplause(currentTime, duration, remaining);
 }
 
+let silenceData = null;
+
 /**
  * Só funciona se o motor de áudio conseguir "escutar" o sinal de verdade
  * (CDG sempre; vídeo MP4 só quando o tom estiver roteado pelo pitch
@@ -1379,7 +1406,9 @@ function checkSilenceForApplause(currentTime, duration, remaining) {
   const dt = lastSilenceCheckMs ? Math.min(500, now - lastSilenceCheckMs) : 0;
   lastSilenceCheckMs = now;
 
-  const data = new Uint8Array(analyser.fftSize);
+  // Um buffer só, reaproveitado (antes alocava 60x/s nos últimos 20 s de cada música).
+  if (!silenceData || silenceData.length !== analyser.fftSize) silenceData = new Uint8Array(analyser.fftSize);
+  const data = silenceData;
   analyser.getByteTimeDomainData(data);
   let sumSquares = 0;
   for (let i = 0; i < data.length; i++) {
@@ -1561,7 +1590,9 @@ async function playLoadedTrack() {
       await mediaEl().play();
       updatePlayIcon();
     } else if (mode === 'youtube') {
+      setYtStarting(true);
       yt().play();
+      updateAmbientState();
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
@@ -1819,7 +1850,7 @@ function updateAmbientState() {
     stopAmbient();
     return;
   }
-  if (isAnythingPlaying()) {
+  if (isAnythingPlaying() || (ytStarting && mode === 'youtube')) {
     stopAmbient();
   } else {
     startAmbient();
@@ -2289,6 +2320,11 @@ const library = window.createLibrary({
   onIndexChange: () => {
     // Se tiver uma busca aberta, atualiza os resultados com o índice novo.
     if (searchSource === 'device' && searchInput.value.trim() && !searchResults.classList.contains('hidden')) renderDeviceResults();
+    // Pasta reconectada: se a música carregada não abriu por estar pendente, tenta de novo.
+    if (mode === null && !isTrackLoading && playlist.length > 0 && playlistRestoreDone && libraryFolderReady(playlist[0])) {
+      if (singerModeEnabled && showTurn) loadCurrentSingerTurn(false);
+      else if (!singerModeEnabled && currentIndex === -1) selectTrack(0, { autoplay: false, initialSemitones: playlist[0].savedSemitones || 0 });
+    }
   },
   onError: (msg) => showError(msg),
 });
@@ -2394,6 +2430,25 @@ function libraryItemSource(item) {
 
 /** Item da Biblioteca a partir da referência salva. Com o caminho salvo
  * (v2.6+) não precisa consultar o índice; referências antigas consultam. */
+/** A pasta da música está conectada, com permissão e já escaneada? */
+function libraryFolderReady(item) {
+  const src = item && item.librarySource;
+  return !!src && library.getConnectedFolders().some(f => f.id === src.folderId && !f.needsPermission && !f.scanning);
+}
+
+/** Música da Biblioteca restaurada sem arquivo (pasta sem permissão ou HD
+ * desconectado depois de reiniciar): busca o arquivo na hora de tocar. */
+async function resolvePendingLibraryFile(item) {
+  try {
+    const found = item._libraryItem || await libraryItemFromSource(item.librarySource);
+    if (found) {
+      item.file = await library.getFileForItem(found);
+      return item.file;
+    }
+  } catch (err) { /* cai no aviso abaixo */ }
+  throw new Error(window.i18n.t('err_library_song_pending'));
+}
+
 async function libraryItemFromSource(src) {
   if (!src) return null;
   if (Array.isArray(src.path)) {
@@ -2659,6 +2714,7 @@ const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
 const singerManager = window.createSingerManager({
   onChange: () => {
     renderSingerRoundView(); persistSingers(); scheduleShowTurnSync(); syncRotationModeSeg();
+    refreshManageSingersIfOpen(); // a música pode acabar com o Gerenciar aberto
     if (singerModeEnabled) updateNextBtnState();
     if (singerModeEnabled && playlistRestoreDone) updateIdleOverlay(); // cartão "A seguir" acompanha a rodada
   },
@@ -2728,7 +2784,8 @@ function actuallyEnableSingerMode() {
 
 showModeBtn.addEventListener('click', () => {
   if (!singerModeEnabled) {
-    const alreadyDismissed = localStorage.getItem(SHOW_WELCOME_HIDE_KEY) === 'true';
+    let alreadyDismissed = false;
+    try { alreadyDismissed = localStorage.getItem(SHOW_WELCOME_HIDE_KEY) === 'true'; } catch (err) {} // dados do site bloqueados
     if (alreadyDismissed) {
       rotationModeBackdrop.classList.remove('hidden');
     } else {
@@ -2786,6 +2843,15 @@ async function askSingerTable(name, current) {
   return n > 0 ? n : null;
 }
 
+/** Selo AUSENTE do cantor. */
+function awayChip(singer) {
+  if (!singer.away) return null;
+  const chip = document.createElement('span');
+  chip.className = 'away-chip';
+  chip.textContent = window.i18n.t('away_chip');
+  return chip;
+}
+
 /** Selo "M4" do cantor no modo mesa. */
 function tableChip(singer) {
   if (singerManager.getRotationMode() !== 'table' || !singer.table) return null;
@@ -2807,6 +2873,7 @@ function getSingerPosition(singerId) {
 }
 
 function renderSingerRoundView() {
+  if (editingSingerPosition()) return;
   const allSingers = singerManager.getAllSingers();
   singerListFull.innerHTML = '';
   if (singerModeEnabled) setListTitle(window.i18n.t('singer_rotation_label'), allSingers.length);
@@ -2846,6 +2913,8 @@ function renderSingerRoundView() {
     const tChip = tableChip(s);
     if (tChip) nameLine.appendChild(tChip);
     nameLine.appendChild(songCountBadge);
+    const aChip = awayChip(s);
+    if (aChip) { nameLine.appendChild(aChip); row.classList.add('is-away'); }
     if (isActive) {
       // CANTANDO enquanto toca; antes de começar, é quem vem a seguir.
       const chip = createNowChip('singing_chip');
@@ -2969,6 +3038,8 @@ const swapSourceDeviceBtn = el('swap-source-device-btn');
 const swapSourceOnlineBtn = el('swap-source-online-btn');
 const swapSongFileInput = el('swap-song-file-input');
 let swapSingerId = null;
+let swapOpenedTurn = null;        // a vez de quando o modal abriu
+let swapOpenedInterrupting = false; // abriu com o cantor já cantando
 let swapSource = 'device';
 let swapSearchGeneration = 0;
 
@@ -2980,6 +3051,8 @@ function openSwapSongModal(singerId) {
   // Se ele já está cantando, "atual" é a que está tocando (o operador pode
   // ter reordenado a fila dele no meio da apresentação).
   const playing = performanceStarted() && showTurn && showTurn.singerId === singerId ? showTurn.song : null;
+  swapOpenedTurn = showTurn;
+  swapOpenedInterrupting = !!playing;
   const current = playing || singer.songs[0];
   el('swap-song-current').textContent = current
     ? window.i18n.t('swap_song_current', { song: [current.artist, current.title].filter(Boolean).join(' — ') })
@@ -3072,7 +3145,10 @@ async function runSwapOnlineSearch() {
 function applySwap(song) {
   if (!swapSingerId) return;
   const singerId = swapSingerId;
-  const interrupting = performanceStarted() && showTurn && showTurn.singerId === singerId;
+  // A música pode ter acabado com o modal aberto: aí a abandonada já saiu
+  // da fila e a nova entra na frente, sem apagar a próxima que ele pediu.
+  const turnEnded = swapOpenedInterrupting && showTurn !== swapOpenedTurn;
+  const interrupting = !turnEnded && performanceStarted() && showTurn && showTurn.singerId === singerId;
   try {
     if (interrupting) {
       // Tira a abandonada (se ainda estiver na fila) e a nova entra na frente.
@@ -3081,7 +3157,7 @@ function applySwap(song) {
       if (idx !== -1) singerManager.removeSongFromSinger(singerId, idx);
       singerManager.replaceSong(singerId, -1, song);
     } else {
-      singerManager.replaceSong(singerId, 0, song);
+      singerManager.replaceSong(singerId, turnEnded ? -1 : 0, song);
     }
   } catch (err) {
     showError(err.message);
@@ -3346,6 +3422,7 @@ function persistSingers() {
       history: s.history,
       table: s.table || null,
       turnRound: s.turnRound,
+      away: !!s.away,
     }));
     localStorage.setItem(SINGERS_STORAGE_KEY, JSON.stringify({
       enabled: singerModeEnabled,
@@ -3353,6 +3430,7 @@ function persistSingers() {
       currentSingerId: raw.currentSingerId,
       rotationMode: raw.rotationMode,
       round: raw.round,
+      forcedNextId: raw.forcedNextId,
       singers: safeSingers,
     }));
   } catch (err) {
@@ -3378,6 +3456,7 @@ async function restoreSingersFromStorage() {
   // da fila simples) — ficam de fora, silenciosamente, nessa primeira
   // versão.
   let droppedSongs = 0;
+  let pendingSongs = 0;
   const restoredSingers = [];
   for (const s of (saved.singers || [])) {
     const songs = [];
@@ -3386,19 +3465,21 @@ async function restoreSingersFromStorage() {
         songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null });
         continue;
       }
-      if (song.librarySource && library.getConnectedFolders().some(f => f.id === song.librarySource.folderId && !f.needsPermission)) {
-        const found = await libraryItemFromSource(song.librarySource);
-        if (found) {
-          songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null, _libraryItem: found });
-          continue;
-        }
+      if (song.librarySource) {
+        // Mesmo com a pasta pedindo permissão, a música fica: o arquivo é
+        // buscado na hora de tocar (resolvePendingLibraryFile).
+        const ready = library.getConnectedFolders().some(f => f.id === song.librarySource.folderId && !f.needsPermission);
+        const found = ready ? await libraryItemFromSource(song.librarySource) : null;
+        if (!found) pendingSongs++;
+        songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null, ...(found ? { _libraryItem: found } : {}) });
+        continue;
       }
       droppedSongs++;
     }
     restoredSingers.push({ ...s, songs });
   }
 
-  const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, rotationMode: saved.rotationMode, round: saved.round, singers: restoredSingers };
+  const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, rotationMode: saved.rotationMode, round: saved.round, forcedNextId: saved.forcedNextId, singers: restoredSingers };
   singerManager.restore(snapshot);
 
   // Resolve o `file` de verdade (async) pras músicas restauradas da Biblioteca.
@@ -3414,6 +3495,8 @@ async function restoreSingersFromStorage() {
     renderSingerRoundView();
     if (droppedSongs > 0) {
       showError(window.i18n.t('err_singer_songs_dropped', { count: droppedSongs }));
+    } else if (pendingSongs > 0) {
+      showError(window.i18n.t('err_library_songs_pending', { count: pendingSongs }));
     }
   }
 }
@@ -3546,7 +3629,28 @@ manageSingersSidebarBtn.addEventListener('click', openManageSingersModal);
 manageSingersCloseBtn.addEventListener('click', () => manageSingersBackdrop.classList.add('hidden'));
 manageSingersBackdrop.addEventListener('click', (e) => { if (e.target === manageSingersBackdrop) manageSingersBackdrop.classList.add('hidden'); });
 
+/** Redesenha o Gerenciar Cantores se estiver aberto (lista + detalhe). */
+function refreshManageSingersIfOpen() {
+  if (manageSingersBackdrop.classList.contains('hidden')) return;
+  renderManageSingersList();
+  if (selectedManageSingerId && singerManager.getAllSingers().some(s => s.id === selectedManageSingerId)) {
+    renderManageSingerDetail(selectedManageSingerId);
+  } else {
+    selectedManageSingerId = null;
+    manageSingersEmpty.classList.remove('hidden');
+    manageSingersDetail.classList.add('hidden');
+  }
+}
+
+/** Digitando a posição de um cantor: as listas esperam pra redesenhar
+ * (senão a caixinha some e os números seguintes disparam os pads). */
+function editingSingerPosition() {
+  const a = document.activeElement;
+  return !!(a && a.classList && a.classList.contains('pos-input'));
+}
+
 function renderManageSingersList() {
+  if (editingSingerPosition()) return;
   manageSingersList.innerHTML = '';
   const singers = singerManager.getAllSingers();
   const current = singerManager.getCurrentSinger();
@@ -3568,6 +3672,8 @@ function renderManageSingersList() {
     nameLine.appendChild(nameEl);
     const tChip = tableChip(s);
     if (tChip) nameLine.appendChild(tChip);
+    const aChip = awayChip(s);
+    if (aChip) { nameLine.appendChild(aChip); row.classList.add('is-away'); }
     if (current && current.id === s.id) {
       const dot = document.createElement('span');
       dot.className = 'dotnow';
@@ -3642,11 +3748,34 @@ function renderManageSingerDetail(singerId) {
   const isCurrent = !!(current && current.id === singer.id);
   detailSingNextBtn.disabled = isCurrent;
   detailSingLastBtn.disabled = isCurrent;
+  detailAwayBtn.textContent = window.i18n.t(singer.away ? 'away_back_btn' : 'away_btn');
+  detailAwayBtn.classList.toggle('on', !!singer.away);
+  // O da vez no meio da apresentação não sai: encerre antes.
+  detailAwayBtn.disabled = !singer.away && isCurrent && performanceStarted();
   detailTableBtn.classList.toggle('hidden', singerManager.getRotationMode() !== 'table');
   detailTableBtn.textContent = singer.table ? window.i18n.t('table_label', { n: singer.table }) : window.i18n.t('table_none');
   renderDetailQueueList(singer);
   renderDetailHistoryList(singer);
 }
+
+detailAwayBtn.addEventListener('click', async () => {
+  const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
+  if (!singer) return;
+  const goingAway = !singer.away;
+  const isCurrent = singerManager.getCurrentSinger() === singer;
+  if (goingAway && isCurrent && performanceStarted()) return;
+  singerManager.setSingerAway(singer.id, goingAway);
+  // Era a vez dele e ainda não tinha começado: a vez passa pro próximo.
+  if (goingAway && isCurrent && singerManager.getAllSingers().some(s => !s.away)) {
+    if (countdownTimerId || singerCountdownActive) cancelCountdown();
+    stopCurrentMedia();
+    showTurn = null;
+    singerManager.skipTurn();
+    await loadCurrentSingerTurn(false);
+    updateNextBtnState();
+  }
+  refreshManageSingersIfOpen();
+});
 
 detailTableBtn.addEventListener('click', async () => {
   const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
@@ -3762,19 +3891,22 @@ function renderDetailQueueList(singer) {
     const reorder = document.createElement('div');
     reorder.className = 'acts';
     reorder.appendChild(rowActionBtn(ICON_UP, window.i18n.t('move_up_title'), i === 0, () => {
-      singerManager.reorderSongInSinger(singer.id, i, i - 1);
+      const at = singer.songs.indexOf(song); // pelo objeto: a fila pode ter mudado com o modal aberto
+      if (at > 0) singerManager.reorderSongInSinger(singer.id, at, at - 1);
       renderDetailQueueList(singer);
       renderSingerRoundView();
     }));
     reorder.appendChild(rowActionBtn(ICON_DOWN, window.i18n.t('move_down_title'), i === singer.songs.length - 1, () => {
-      singerManager.reorderSongInSinger(singer.id, i, i + 2);
+      const at = singer.songs.indexOf(song);
+      if (at !== -1) singerManager.reorderSongInSinger(singer.id, at, at + 2);
       renderDetailQueueList(singer);
       renderSingerRoundView();
     }));
     const remove = document.createElement('div');
     remove.className = 'acts';
     const removeBtn = rowActionBtn(ICON_X, window.i18n.t('remove_from_queue_title'), false, () => {
-      singerManager.removeSongFromSinger(singer.id, i);
+      const at = singer.songs.indexOf(song);
+      if (at !== -1) singerManager.removeSongFromSinger(singer.id, at);
       renderDetailQueueList(singer);
       renderManageSingersList();
       renderSingerRoundView();
@@ -3982,7 +4114,9 @@ function formatShowDuration(ms) {
 }
 
 function openShowReport() {
-  const startRaw = localStorage.getItem(SHOW_START_KEY)
+  let savedStart = null;
+  try { savedStart = localStorage.getItem(SHOW_START_KEY); } catch (err) {}
+  const startRaw = savedStart
     || (showHistory.length ? String(showHistory[0].horario) : null); // shows iniciados antes dessa chave existir
   const start = startRaw ? Number(startRaw) : Date.now();
   const duration = Date.now() - start;
@@ -4024,7 +4158,8 @@ showReportCloseBtn.addEventListener('click', () => showReportBackdrop.classList.
  * com = + @ (evita o Excel interpretar um nome digitado como fórmula). */
 function csvCell(v) {
   let str = String(v ?? '');
-  if (/^[=+@\t\r]/.test(str)) str = "'" + str;
+  // Texto que o Excel/LibreOffice leria como fórmula (inclui "-" e espaços antes); números puros (tom -2) ficam.
+  if (typeof v !== 'number' && /^\s*[=+\-@\t\r]/.test(str)) str = "'" + str;
   return `"${str.replace(/"/g, '""')}"`;
 }
 
@@ -4054,7 +4189,9 @@ exportCsvBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-newShowBtn.addEventListener('click', () => {
+newShowBtn.addEventListener('click', async () => {
+  // Fica ao lado do "Exportar CSV": um clique errado apagava a noite inteira.
+  if (!(await showConfirmModal(window.i18n.t('confirm_new_show')))) return;
   try {
     localStorage.removeItem(SHOW_HISTORY_KEY);
     localStorage.removeItem(SINGERS_STORAGE_KEY);
@@ -4116,6 +4253,7 @@ async function restorePlaylistFromStorage() {
 
   let restoredCount = 0;
   let droppedCount = 0;
+  let pendingCount = 0;
 
   for (const savedItem of saved.items) {
     let restored = false;
@@ -4127,26 +4265,27 @@ async function restorePlaylistFromStorage() {
     }
     if (savedItem.librarySource) {
       const found = await libraryItemFromSource(savedItem.librarySource);
+      let file = null;
       if (found) {
-        try {
-          const file = await library.getFileForItem(found);
-          playlist.push({
-            id: 'track_' + (++playlistIdCounter),
-            file,
-            code: found.code,
-            artist: found.artist,
-            title: found.title,
-            format: found.format,
-            type: found.type,
-            librarySource: savedItem.librarySource,
-            savedSemitones: savedItem.savedSemitones || 0,
-          });
-          restoredCount++;
-          restored = true;
-        } catch (err) {
-          console.warn('[App] Não foi possível reabrir arquivo restaurado:', err);
-        }
+        try { file = await library.getFileForItem(found); } catch (err) { /* pasta sem permissão / HD fora: fica pendente */ }
       }
+      // Sem arquivo agora (pasta pedindo permissão, HD desconectado), a
+      // música fica na fila e o arquivo é buscado na hora de tocar —
+      // antes ela era descartada e a fila salva sem ela, pra sempre.
+      if (!file) pendingCount++;
+      playlist.push({
+        id: 'track_' + (++playlistIdCounter),
+        file,
+        code: found ? found.code : savedItem.code,
+        artist: found ? found.artist : savedItem.artist,
+        title: found ? found.title : savedItem.title,
+        format: found ? found.format : savedItem.format,
+        type: found ? found.type : savedItem.type,
+        librarySource: savedItem.librarySource,
+        savedSemitones: savedItem.savedSemitones || 0,
+      });
+      restoredCount++;
+      restored = true;
     }
     if (!restored) droppedCount++;
   }
@@ -4154,10 +4293,13 @@ async function restorePlaylistFromStorage() {
   if (restoredCount > 0) {
     renderPlaylist();
     // Deixa a primeira música carregada (pausada), pronta pra tocar.
-    if (mode === null && currentIndex === -1) await selectTrack(0, { autoplay: false, initialSemitones: playlist[0].savedSemitones || 0 });
+    // (se a primeira está pendente, espera reconectar a pasta — senão dava erro ao abrir)
+    if (mode === null && currentIndex === -1 && (playlist[0].file || playlist[0].type === 'youtube')) await selectTrack(0, { autoplay: false, initialSemitones: playlist[0].savedSemitones || 0 });
   }
   if (droppedCount > 0) {
     showError(window.i18n.t('err_playlist_songs_dropped', { count: droppedCount }));
+  } else if (pendingCount > 0) {
+    showError(window.i18n.t('err_library_songs_pending', { count: pendingCount }));
   }
 }
 
@@ -4309,8 +4451,10 @@ function nudgeVolume(delta) {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (!shortcutsToggle.checked || e.repeat && e.code === 'Space' || shortcutsBlocked()) return;
+  if (!shortcutsToggle.checked || shortcutsBlocked()) return;
   const mod = e.ctrlKey || e.metaKey;
+  // Tecla segurada só repete o volume (Ctrl+→ segurado pulava várias músicas).
+  if (e.repeat && !(mod && e.shiftKey && (e.code === 'ArrowUp' || e.code === 'ArrowDown'))) { if (e.code === 'Space') e.preventDefault(); return; }
   const press = (btn) => { e.preventDefault(); if (!btn.disabled) btn.click(); };
 
   if (!mod && !e.altKey && e.code === 'Space') {

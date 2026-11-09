@@ -30,7 +30,9 @@ function createOnlineSearch(options) {
 
     let res;
     try {
-      res = await fetch(`${endpoint}/search?q=${encodeURIComponent(q)}`);
+      // Wi-Fi ruim de bar: sem limite, o "Buscando..." ficava minutos na tela.
+      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined;
+      res = await fetch(`${endpoint}/search?q=${encodeURIComponent(q)}`, { signal });
     } catch (err) {
       throw fail(navigator.onLine === false ? 'offline' : 'network');
     }

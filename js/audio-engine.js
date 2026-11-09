@@ -118,6 +118,11 @@ class AudioEngine extends EventTarget {
   async loadArrayBuffer(arrayBuffer) {
     this._ensureContext();
     this.stop();
+    // Cada carga tem um número: se outra começar antes do decode desta
+    // terminar, esta não grava o buffer (senão a música nova tocava o
+    // áudio da anterior).
+    const token = this._loadToken = (this._loadToken || 0) + 1;
+    this._isStale = () => token !== this._loadToken;
 
     if (this._preferredBackend === 'worklet') {
       try {
@@ -137,8 +142,10 @@ class AudioEngine extends EventTarget {
   }
 
   async _loadScriptProcessor(arrayBuffer) {
+    const isStale = this._isStale;
     const PitchShifter = await loadPitchShifterClass();
     const decoded = await this.audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    if (isStale()) return;
     this.buffer = decoded;
 
     this.shifter = new PitchShifter(this.audioCtx, this.buffer, 4096, () => this._finishPlayback());
@@ -149,12 +156,15 @@ class AudioEngine extends EventTarget {
   }
 
   async _loadWorklet(arrayBuffer) {
+    const isStale = this._isStale;
     await this._ensurePitchNode();
 
     // decodeAudioData "consome" (detach) o buffer passado. O app não reusa
     // esse ArrayBuffer depois (é extraído do zip a cada carregamento), então
     // não precisamos de uma cópia — economiza a memória do arquivo inteiro.
+    if (!isStale()) this.workletBuffer = null; // libera o anterior antes de decodificar (pico de memória em 4GB)
     const decoded = await this.audioCtx.decodeAudioData(arrayBuffer);
+    if (isStale()) return;
     this.workletBuffer = decoded;
 
     this._pausedOffset = 0;

@@ -110,3 +110,20 @@ test('processador de pitch com entrada mono preenche os dois canais', () => {
     assert.ok(Math.abs(out[1][127]) > 0.1, `canal direito mudo (ratio ${ratio})`);
   }
 });
+
+test('troca rápida: o decode lento da música anterior não sobrescreve o da nova', async () => {
+  const engine = new AudioEngine();
+  engine.setPreferredBackend('worklet');
+  engine._ensureContext();
+  const ctx = engine.audioCtx;
+  const real = ctx.decodeAudioData;
+  // A (anterior) demora 50 ms; B (nova, mais curta) termina antes.
+  ctx.decodeAudioData = (buf) => buf.byteLength === 1
+    ? new Promise(r => setTimeout(() => r({ duration: 300 }), 50))
+    : Promise.resolve({ duration: 120 });
+  const a = engine.loadArrayBuffer(new ArrayBuffer(1));
+  await engine.loadArrayBuffer(new ArrayBuffer(2));
+  await a;
+  ctx.decodeAudioData = real;
+  assert.equal(engine.workletBuffer.duration, 120, 'ficou com o áudio da música anterior');
+});
