@@ -49,8 +49,7 @@
 .ticker.hidden{display:none}
 .ticker-text{display:inline-block;padding-left:100%;will-change:transform}
 .ticker.run .ticker-text{animation:tk-scroll var(--tk-dur) linear infinite}
-@keyframes tk-scroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-@media (prefers-reduced-motion:reduce){.ticker.run .ticker-text{animation:none;padding-left:16px}}`;
+@keyframes tk-scroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}`;
     doc.head.appendChild(style);
   }
 

@@ -58,3 +58,10 @@ test('createTicker: altura pelo tamanho e mesmo estado não reinicia', () => {
   const node = bar.querySelector('.ticker-text').firstChild; tk.update(st({ size: 'large' }));
   assert.equal(bar.querySelector('.ticker-text').firstChild, node, 'remontou à toa');
 });
+
+test('a barra continua passando com "menos animação" do Windows (modo melhor desempenho)', () => {
+  // Máquinas antigas costumam estar em "Ajustar para obter melhor desempenho", que liga
+  // prefers-reduced-motion no Chrome; a barra é o letreiro que o operador ligou de propósito.
+  const w = load(); w.createTicker(w.document.body);
+  assert.ok(!w.document.getElementById('ticker-style').textContent.includes('prefers-reduced-motion'));
+});
