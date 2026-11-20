@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PlayKaraoke Player</title>
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png"/>
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png"/>
+<meta name="theme-color" content="#141419"/>
+<script>
+  // Tema salvo aplicado ANTES de desenhar a página (evita "piscar" claro/escuro).
+  try { if (localStorage.getItem('playkaraoke-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  /* =====================================================================
+     SEM backdrop-filter (desfoque de vidro): com ele, montar a tela custava
+     ~12x mais a cada quadro da letra/vídeo e travava computadores antigos
+     (medido na 3.0.1). Os fundos foram escolhidos pra parecer igual sem ele.
+     ---------------------------------------------------------------------
+     PlayKaraoke Player 3.0 — tema "grafite + vidro sutil", destaque
+     violeta → rosa. Cores só por variáveis: o tema claro redefine as
+     variáveis em html[data-theme=light].
+     ===================================================================== */
+  :root{
+    --bg:#141419;
+    --ov:255,255,255;                 /* cor das camadas de vidro e linhas */
+    --glass:rgba(var(--ov),0.035);
+    --glass-2:rgba(var(--ov),0.06);
+    --glass-3:rgba(var(--ov),0.10);
+    --line:rgba(var(--ov),0.07);
+    --line-2:rgba(var(--ov),0.13);
+    --text:#eeecf2;
+    --text-2:#a09fae;
+    --text-3:#6f6e7c;
+    --violet:#8b5cf6;
+    --violet-soft:#a78bfa;
+    --pink:#ec4899;
+    --accent-text:#b28cff;
+    --accent-2:#f0abfc;
+    --error:#ff6b6b;
+    --grad:linear-gradient(135deg, var(--violet), var(--pink));
+    --shadow:0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(var(--ov),0.04);
+    --top-bg:rgba(14,14,18,0.55);
+    --pop-bg:rgba(26,25,32,0.97);
+    --sink:rgba(0,0,0,0.25);
+    --logo:#fff;
+    --radius:16px;
+    color-scheme:dark;
+  }
+  html[data-theme=light]{
+    --bg:#f1eff6;
+    --ov:40,32,70;
+    --glass:rgba(255,255,255,0.62);
+    --text:#1d1b26;
+    --text-2:#5d5a6e;
+    --text-3:#8e8b9e;
+    --accent-text:#7c3aed;
+    --accent-2:#db2777;
+    --top-bg:rgba(255,255,255,0.7);
+    --pop-bg:rgba(255,255,255,0.98);
+    --sink:rgba(40,32,70,0.06);
+    --shadow:0 10px 30px rgba(60,40,120,0.10), inset 0 1px 0 rgba(255,255,255,0.8);
+    --logo:#1d1b26;
+    color-scheme:light;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:'Inter',sans-serif; color:var(--text); overflow:hidden;
+    background:
+      radial-gradient(1000px 600px at 95% -20%, rgba(139,92,246,0.14), transparent 60%),
+      radial-gradient(800px 600px at 60% 130%, rgba(236,72,153,0.08), transparent 60%),
+      var(--bg);
+  }
+  html[data-theme=light] body{
+    background:
+      radial-gradient(1000px 600px at 95% -20%, rgba(139,92,246,0.16), transparent 60%),
+      radial-gradient(800px 600px at 60% 130%, rgba(236,72,153,0.10), transparent 60%),
+      var(--bg);
+  }
+  button{ font-family:inherit; color:inherit; }
+  button:disabled{ cursor:not-allowed; }
+  .hidden{ display:none !important; }
+  .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-2); }
+  .label em{ font-style:normal; color:var(--text-3); margin-left:6px; }
+  .panel{ background:var(--glass); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }
+
+  .btn{ height:38px; padding:0 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; background:var(--glass-2); border:1px solid var(--line-2); }
+  .btn:hover:not(:disabled){ background:var(--glass-3); }
+  .btn.primary{ background:var(--grad); border-color:transparent; color:#fff; box-shadow:0 6px 18px rgba(139,92,246,0.3); }
+  .btn.primary:hover:not(:disabled){ filter:brightness(1.08); }
+  .btn.ghost{ background:none; color:var(--text-2); }
+  .btn.sm{ height:32px; padding:0 13px; font-size:12.5px; border-radius:9px; }
+  .btn:disabled{ opacity:.45; }
+  .icon-btn{ width:32px; height:32px; border-radius:9px; border:1px solid var(--line-2); background:var(--glass-2); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; color:var(--text-2); flex-shrink:0; }
+  .icon-btn:hover:not(:disabled){ color:var(--text); background:var(--glass-3); }
+  .icon-btn svg{ width:15px; height:15px; }
+  .chip{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:.06em; padding:0 8px; height:18px; display:inline-flex; align-items:center; border-radius:999px; flex-shrink:0; white-space:nowrap; }
+  .chip.is-now{ background:var(--grad); color:#fff; }
+  .chip.is-next{ border:1px solid var(--line-2); color:var(--text-2); }
+  .fmt{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:.05em; padding:0 7px; height:17px; display:inline-flex; align-items:center; border-radius:999px; border:1px solid var(--line-2); color:var(--text-2); flex-shrink:0; }
+  .seg{ display:flex; gap:2px; padding:3px; border-radius:9px; background:var(--sink); flex-shrink:0; }
+  .seg button{ border:0; background:none; padding:5px 12px; border-radius:7px; font-size:12px; font-weight:600; color:var(--text-2); cursor:pointer; white-space:nowrap; }
+  .seg button.on{ background:var(--glass-3); color:var(--text); }
+  input[type=range]{ -webkit-appearance:none; appearance:none; flex:1; min-width:60px; height:6px; border-radius:6px; outline:none; cursor:pointer;
+    background:linear-gradient(90deg, var(--violet), var(--pink) var(--fill,0%), rgba(var(--ov),0.09) var(--fill,0%)); }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.45); cursor:pointer; }
+  input[type=range]::-moz-range-thumb{ width:18px; height:18px; border-radius:50%; background:#fff; border:0; cursor:pointer; }
+  .txt{ height:36px; border-radius:9px; border:1px solid var(--line-2); background:var(--sink); color:var(--text); padding:0 11px; font-size:13.5px; font-family:inherit; min-width:0; outline:none; }
+  .txt:focus{ border-color:var(--violet-soft); }
+  /* Switch (liga/desliga) — o checkbox de verdade fica escondido */
+  .sw{ position:relative; width:42px; height:24px; border-radius:999px; border:0; cursor:pointer; background:rgba(var(--ov),0.16); flex-shrink:0; transition:background .15s; padding:0; }
+  .sw::after{ content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .15s; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  .sw.on{ background:var(--grad); }
+  .sw.on::after{ left:21px; }
+  .sw:disabled{ opacity:.5; }
+  .sw .toggle-state-text{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  .app{ height:100vh; display:grid; grid-template-rows:60px 1fr; }
+
+  /* ================= Topo ================= */
+  .top{ position:relative; z-index:30; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid var(--line); background:var(--top-bg); }
+  .logo{ display:flex; align-items:center; gap:9px; flex-shrink:0; }
+  .logo img{ height:28px; width:auto; display:block; }
+  html[data-theme=light] .logo img, html[data-theme=light] .brand-logo{ filter:invert(1) brightness(0.25); }
+  .logo-tag{ font-family:'Montserrat',sans-serif; font-weight:700; font-size:12px; letter-spacing:.16em; color:var(--pink); padding-top:3px; }
+  html[data-theme=light] .logo-tag{ color:#db2777; }
+  .search{ position:relative; flex:1; min-width:340px; max-width:820px; display:flex; align-items:center; gap:8px; height:40px; padding:0 5px 0 12px; border-radius:12px; background:var(--glass-2); border:1px solid var(--line); }
+  .search:focus-within{ border-color:var(--line-2); }
+  .search > svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
+  .search input{ flex:1; min-width:0; background:none; border:0; outline:0; color:var(--text); font-size:13.5px; font-family:inherit; }
+  .search input::placeholder{ color:var(--text-3); }
+  #search-clear-btn{ border:0; background:none; color:var(--text-3); cursor:pointer; width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; }
+  #search-clear-btn:hover{ color:var(--text); background:var(--glass-2); }
+  #search-clear-btn svg{ width:14px; height:14px; }
+  .results{ position:absolute; top:46px; left:0; right:0; z-index:40; padding:8px; max-height:min(460px, 70vh); overflow:auto;
+    background:var(--pop-bg); border:1px solid var(--line-2); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.3); }
+  .res-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); padding:6px 8px; }
+  .res{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; cursor:pointer; }
+  .res:hover{ background:var(--glass-2); }
+  .res .thumb{ width:72px; aspect-ratio:16/9; border-radius:6px; object-fit:cover; background:var(--glass-3); flex-shrink:0; }
+  .res .rmeta{ flex:1; min-width:0; }
+  .res .t{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .res .s{ font-size:11.5px; color:var(--text-2); margin-top:2px; display:flex; gap:6px; align-items:center; white-space:nowrap; overflow:hidden; }
+  .res .add{ width:30px; height:30px; border-radius:9px; background:var(--grad); display:flex; align-items:center; justify-content:center; color:#fff; font-size:17px; font-weight:600; flex-shrink:0; box-shadow:0 4px 12px rgba(139,92,246,0.35); }
+  .res:hover .add{ filter:brightness(1.12); }
+  .res-msg{ font-size:12.5px; color:var(--text-2); padding:10px 8px; line-height:1.5; margin:0; }
+  .res-msg.warn{ color:var(--error); }
+  .spacer{ flex:1; }
+  .pills{ display:flex; gap:6px; margin-left:auto; }
+  .pill{ display:flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap;
+    background:var(--glass); border:1px solid var(--line); color:var(--text-2); }
+  .pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-3); }
+  .pill:hover{ color:var(--text); }
+  .pill.on{ background:var(--grad); border-color:transparent; color:#fff; font-weight:600; box-shadow:0 4px 14px rgba(139,92,246,0.35); }
+  .pill.on .dot{ background:#fff; }
+  .gear{ width:36px; height:36px; border-radius:10px; border:0; cursor:pointer; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(139,92,246,0.35); flex-shrink:0; }
+  .gear svg{ width:18px; height:18px; }
+  .mode-btn{ height:36px; padding:0 14px; border-radius:999px; cursor:pointer; font-size:12.5px; font-weight:600; background:none; border:1.5px solid var(--line-2); display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; }
+  .mode-btn:hover{ border-color:var(--violet-soft); }
+  .mode-btn svg{ width:13px; height:13px; }
+  @media (max-width: 1300px){ .pill{ padding:0 10px; font-size:11.5px; } .search{ min-width:300px; } }
+
+  /* ================= Corpo ================= */
+  .body{ display:grid; grid-template-columns:minmax(340px, 40%) 1fr; gap:16px; padding:16px; min-height:0; }
+
+  /* Lista */
+  .list-col{ display:flex; flex-direction:column; min-height:0; }
+  .drop{ margin:12px 12px 2px; height:44px; flex-shrink:0; border:1.5px dashed var(--line-2); border-radius:12px; display:flex; align-items:center; justify-content:center; gap:10px; color:var(--text-2); font-size:12.5px; cursor:pointer; }
+  .drop:hover, .drop.drag-active{ border-color:var(--violet-soft); color:var(--text); background:rgba(139,92,246,0.05); }
+  .drop svg{ width:22px; height:22px; color:#b9a4ff; }
+  .list-head{ padding:14px 16px 8px; }
+  .list{ flex:1; min-height:0; overflow:auto; padding:0 10px 10px; display:flex; flex-direction:column; gap:6px; }
+  .list::-webkit-scrollbar{ width:8px; } .list::-webkit-scrollbar-thumb{ background:rgba(var(--ov),0.12); border-radius:8px; }
+  .list-empty{ color:var(--text-3); font-size:13px; padding:8px 6px; margin:0; line-height:1.5; }
+  .row{ position:relative; display:grid; grid-template-columns:30px 1fr auto; align-items:center; gap:10px; padding:11px 12px; border-radius:12px; border:1px solid transparent; background:rgba(var(--ov),0.025); cursor:pointer; }
+  html[data-theme=light] .row{ background:rgba(255,255,255,0.55); }
+  .row:hover{ background:var(--glass-2); border-color:var(--line); }
+  html[data-theme=light] .row:hover{ background:#fff; }
+  .row .pos{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-3); text-align:center; }
+  .row .l1{ display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; min-width:0; }
+  .row .l1 .nm{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .l1 .count{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); font-weight:500; }
+  .row .l1 .count.empty{ color:#fb923c; }
+  .row .l2{ display:flex; align-items:center; gap:6px; margin-top:4px; font-size:13px; color:var(--text-2); white-space:nowrap; overflow:hidden; }
+  .row .l2 .ttl{ overflow:hidden; text-overflow:ellipsis; }
+  .row .l2.waiting{ color:#fb923c; }
+  .row .code{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); }
+  .row .actions{ display:flex; gap:2px; opacity:0; transition:opacity .12s; }
+  .row:hover .actions{ opacity:1; }
+  .row .actions button{ width:26px; height:26px; border:0; background:none; border-radius:7px; cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
+  .row .actions button:hover:not(:disabled){ background:var(--glass-3); color:var(--text); }
+  .row .actions button:disabled{ opacity:.25; }
+  .row .actions svg{ width:14px; height:14px; }
+  .row.active{ background:linear-gradient(90deg, rgba(139,92,246,0.16), rgba(236,72,153,0.05)); border-color:rgba(167,139,250,0.3); }
+  .row.active::before{ content:''; position:absolute; left:-1px; top:10px; bottom:10px; width:3px; border-radius:3px; background:var(--grad); }
+  .row.active .pos{ color:var(--text); }
+  .row.dragging{ opacity:.4; }
+  .row.drag-over-top{ box-shadow:inset 0 2px 0 var(--violet-soft); }
+  .row.drag-over-bottom{ box-shadow:inset 0 -2px 0 var(--violet-soft); }
+  .row.drop-target{ border-color:var(--violet-soft); background:rgba(139,92,246,0.10); }
+  .singer-swap-btn{ height:28px; padding:0 11px; border-radius:8px; border:1px solid var(--line-2); background:var(--glass-2); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .singer-swap-btn:hover{ background:var(--glass-3); }
+  .list-foot{ display:flex; gap:8px; justify-content:center; padding:10px 12px 12px; border-top:1px solid var(--line); flex-shrink:0; }
+  .list-foot .btn{ flex:0 0 calc(50% - 4px); }
+
+  /* Player */
+  .player-col{ display:flex; flex-direction:column; gap:12px; min-height:0; min-width:0; }
+  #stage{ position:relative; flex:1; min-height:140px; container-type:size; overflow:hidden; }
+  .media{ position:absolute; inset:12px; display:flex; align-items:center; justify-content:center; }
+  /* A prévia ocupa o espaço que sobrar, sem distorcer. */
+  #cdg-canvas{ width:min(100cqw - 24px, (100cqh - 24px) * 300 / 216); aspect-ratio:300/216; height:auto; border-radius:14px; background:#000; border:1px solid var(--line); }
+  #video-el{ width:min(100cqw - 24px, (100cqh - 24px) * 16 / 9); aspect-ratio:16/9; height:auto; border-radius:14px; background:#000; }
+  #youtube-host{ width:min(100cqw - 24px, (100cqh - 24px) * 16 / 9); aspect-ratio:16/9; border-radius:14px; overflow:hidden; background:#000; }
+  #youtube-host iframe{ width:100%; height:100%; border:0; } /* clicável: o "Pular anúncio" do YouTube precisa de clique */
+  #stage-canvas-wrap:fullscreen{ background:#000; inset:0; }
+  #stage-canvas-wrap:fullscreen #cdg-canvas{ width:min(100vw, 100vh * 300 / 216); border:0; border-radius:0; }
+  #fullscreen-btn{ position:absolute; right:14px; bottom:14px; width:36px; height:36px; border-radius:10px; border:1px solid rgba(255,255,255,.15); background:rgba(0,0,0,.55); color:#eee; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; }
+  #stage-canvas-wrap:hover #fullscreen-btn, #stage-canvas-wrap:fullscreen #fullscreen-btn{ opacity:1; }
+  #fullscreen-btn svg{ width:18px; height:18px; }
+  #stage-empty{ position:absolute; inset:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; cursor:pointer;
+    border:2px dashed var(--line-2); border-radius:14px; padding:24px; }
+  #stage-empty:hover, #stage-empty.drag-active{ border-color:rgba(167,139,250,0.55); background:rgba(139,92,246,0.04); }
+  #stage-empty svg{ width:58px; height:58px; color:#b9a4ff; }
+  #stage-empty h2{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:clamp(18px, 3cqw, 28px); margin:4px 0 0; }
+  #stage-empty p{ margin:0; color:var(--text-2); font-size:14px; max-width:420px; line-height:1.5; }
+  #stage-remote-placeholder{ position:absolute; inset:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; }
+  #remote-thumb{ width:min(420px, 70cqw); aspect-ratio:16/9; object-fit:cover; border-radius:12px; opacity:0.85; }
+  #remote-title{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:20px; }
+  #remote-hint{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent-text); }
+  #idle-overlay{ position:absolute; inset:12px; border-radius:14px; background:#07070a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  #idle-logo{ width:min(38%, 280px); opacity:.55; }
+  #idle-custom-image{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  #banners{ position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:6; display:flex; flex-direction:column; gap:6px; width:min(560px, 90%); pointer-events:none; }
+  .banner{ padding:10px 14px; border-radius:11px; font-size:13px; font-weight:500; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.35); pointer-events:auto; }
+  .banner.error{ background:rgba(127,29,29,0.92); color:#fff; border:1px solid rgba(255,107,107,.5); }
+  .banner.loading{ background:var(--pop-bg); border:1px solid var(--line-2); color:var(--text); }
+
+  /* Espera entre cantores (Modo Show) e contagem do autoplay — no lugar da prévia */
+  #countdown-overlay{ position:absolute; inset:12px; z-index:4; border-radius:14px; overflow:hidden; color:#fff;
+    background:radial-gradient(600px 300px at 50% 0%, rgba(139,92,246,0.28), transparent 70%), #0b0a10;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:min(2.2cqh, 14px); padding:3%; font-size:clamp(11px, min(2.1cqw, 3.4cqh), 22px); }
+  #countdown-timer-parts{ display:flex; flex-direction:column; align-items:center; gap:.2em; }
+  #countdown-overlay .cd-label, .cd-a-seguir-label, .cd-proximas-label{ font-family:'JetBrains Mono',monospace; font-size:.75em; letter-spacing:.14em; text-transform:uppercase; color:#b9b3cf; }
+  #cd-number{ font-family:'Montserrat',sans-serif; font-weight:700; font-size:3.4em; line-height:1; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #cd-next-title{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.2em; color:#eee; text-align:center; }
+  #cd-singer-highlight{ display:flex; flex-direction:column; align-items:center; gap:.45em; }
+  #cd-singer-card{ background:#fff; color:#15131c; border-radius:14px; padding:.8em 2em; text-align:center; box-shadow:0 10px 40px rgba(139,92,246,.35); max-width:90cqw; }
+  #cd-singer-name-display{ font-family:'Montserrat',sans-serif; font-weight:700; font-size:2em; }
+  #cd-singer-song-display{ font-size:.95em; font-weight:600; color:#4b4760; margin-top:.2em; }
+  #cd-singer-tone-display{ font-size:.9em; font-weight:600; color:#c2410c; margin-top:.2em; }
+  #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:.35em; }
+  #cd-upcoming-list{ display:flex; flex-direction:column; gap:.35em; }
+  .cd-upcoming-row{ display:flex; align-items:center; gap:.6em; font-size:.85em; color:#cfcadf; }
+  .cd-upcoming-row .pos-badge{ width:1.6em; height:1.6em; border-radius:50%; background:#fff; color:#15131c; font-weight:700; font-size:.8em; display:flex; align-items:center; justify-content:center; }
+  .cd-upcoming-row .name-badge{ background:#fff; color:#15131c; font-weight:700; border-radius:999px; padding:.15em .8em; }
+  #cd-skip-btn{ padding:.55em 1.3em; border-radius:999px; border:0; background:var(--grad); color:#fff; font-weight:700; font-size:.85em; cursor:pointer; display:flex; align-items:center; gap:.4em; box-shadow:0 8px 24px rgba(139,92,246,.45); }
+  #cd-skip-btn svg{ width:1em; height:1em; }
+  #cd-skip-btn:disabled{ opacity:.5; }
+
+  /* Dados + controles */
+  .deck{ flex-shrink:0; }
+  .meta{ display:flex; gap:26px; align-items:flex-end; padding:12px 18px 10px; border-bottom:1px solid var(--line); min-width:0; }
+  .meta .f{ min-width:0; }
+  .meta .f .k{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3); }
+  .meta .f .v{ font-size:13.5px; font-weight:600; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta .f.singer .v{ font-family:'Montserrat',sans-serif; }
+  .meta .f.song{ flex:1; }
+  .meta .f.song .v{ color:var(--accent-text); font-family:'Montserrat',sans-serif; }
+  .meta .f.song .v.none{ color:var(--text-3); font-family:'Inter',sans-serif; }
+  .meta .f.fmt-f{ text-align:right; flex-shrink:0; }
+  .meta .f.fmt-f .v{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--accent-2); }
+  .seek{ display:flex; align-items:center; gap:12px; padding:12px 18px 4px; }
+  .seek .t{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2); width:40px; }
+  .seek .t.r{ text-align:right; }
+  #seek-bar{ height:5px; }
+  #seek-bar::-webkit-slider-thumb{ width:13px; height:13px; }
+  .ctrl-row{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px; padding:8px 18px 14px; }
+  .transport{ display:flex; align-items:center; gap:10px; }
+  #play-btn{ width:56px; height:56px; border-radius:50%; border:0; background:var(--grad); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(139,92,246,0.45); }
+  #play-btn svg{ width:22px; height:22px; }
+  #play-btn:disabled{ opacity:.45; box-shadow:none; }
+  .round{ width:40px; height:40px; border-radius:50%; border:1px solid var(--line-2); background:var(--glass-2); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text); }
+  .round:hover:not(:disabled){ background:var(--glass-3); }
+  .round:disabled{ opacity:.35; }
+  .round svg{ width:15px; height:15px; }
+  .vol{ display:flex; align-items:center; gap:12px; padding:0 14px; height:44px; border-radius:12px; background:var(--sink); border:1px solid var(--line); min-width:0; }
+  .vol svg{ width:19px; height:19px; color:var(--text-2); flex-shrink:0; }
+  #volume-pct{ font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; width:38px; text-align:right; }
+  .pitch{ display:flex; align-items:center; gap:8px; height:44px; padding:0 8px 0 14px; border-radius:12px; background:var(--sink); border:1px solid var(--line); }
+  .pitch .k{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; color:var(--text-2); margin-right:4px; }
+  .pb{ width:30px; height:30px; border-radius:8px; border:1px solid var(--line-2); background:var(--glass-2); cursor:pointer; font-size:16px; line-height:1; }
+  .pb:hover:not(:disabled){ background:var(--glass-3); }
+  .pb:disabled{ opacity:.35; }
+  #pitch-value{ font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; width:34px; text-align:center; color:var(--accent-2); }
+  #pitch-reset-btn{ height:30px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:none; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; color:var(--text-2); }
+  #pitch-reset-btn:hover:not(:disabled){ color:var(--text); border-color:var(--line-2); }
+  #pitch-reset-btn:disabled{ opacity:.35; }
+  @media (max-width: 1180px){ .ctrl-row{ grid-template-columns:auto 1fr; } .pitch{ grid-column:1 / -1; justify-self:start; } }
+
+  /* Pads */
+  .pads{ padding:12px 16px 14px; flex-shrink:0; }
+  .pads-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; margin-top:10px; }
+  .pad{ position:relative; height:54px; border-radius:12px; cursor:pointer; font-size:13px; font-weight:600; padding:0 8px; line-height:1.2;
+    border:1px solid var(--line-2); background:linear-gradient(180deg, rgba(var(--ov),0.08), rgba(var(--ov),0.02));
+    box-shadow:inset 0 1px 0 rgba(var(--ov),0.07), 0 4px 12px rgba(0,0,0,0.25); }
+  html[data-theme=light] .pad{ background:linear-gradient(180deg,#fff,#f4f2fa); box-shadow:0 2px 8px rgba(60,40,120,0.08); }
+  .pad .k{ position:absolute; top:5px; left:9px; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-3); }
+  .pad:hover{ border-color:rgba(167,139,250,0.45); }
+  .pad.fire{ background:var(--grad) !important; border-color:transparent; color:#fff; }
+  .pad.empty{ border-style:dashed; background:none !important; box-shadow:none !important; color:var(--text-3); font-weight:500; }
+  @media (max-height: 760px){ .pad{ height:44px; } .pads{ padding:10px 14px 12px; } .pads-grid{ margin-top:8px; } }
+
+  /* ================= Modais ================= */
+  .modal-back{ position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(8,8,12,0.8); padding:20px; }
+  html[data-theme=light] .modal-back{ background:rgba(40,32,70,0.4); }
+  .dlg{ background:var(--pop-bg); border:1px solid var(--line-2); border-radius:20px; box-shadow:0 30px 80px rgba(0,0,0,0.35);
+    width:min(460px,100%); max-height:100%; display:flex; flex-direction:column; overflow:hidden; }
+  .dlg.wide{ width:min(980px,100%); height:min(640px,100%); }
+  .dlg-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px 10px; }
+  .dlg-head h3, .dlg-head h4{ font-family:'Montserrat',sans-serif; font-size:18px; margin:0; }
+  .dlg-sub{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-2); padding:0 20px; margin:-4px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dlg-body{ padding:14px 20px; display:flex; flex-direction:column; gap:10px; overflow:auto; }
+  .dlg-foot{ display:flex; gap:8px; justify-content:flex-end; padding:12px 20px 18px; }
+  .dlg-foot .grow{ flex:1; }
+  .dlg p{ margin:0; font-size:13.5px; line-height:1.55; color:var(--text-2); }
+  .close-x{ width:34px; height:34px; border-radius:10px; border:1px solid var(--line-2); background:var(--glass); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text-2); flex-shrink:0; }
+  .close-x:hover{ color:var(--text); }
+  .close-x svg{ width:16px; height:16px; }
+  .dsearch{ display:flex; align-items:center; gap:8px; height:40px; padding:0 5px 0 12px; border-radius:11px; background:var(--glass-2); border:1px solid var(--line); }
+  .dsearch svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
+  .dsearch input{ flex:1; min-width:0; background:none; border:0; outline:0; color:var(--text); font-size:13.5px; font-family:inherit; }
+  .dres-list{ display:flex; flex-direction:column; overflow:auto; max-height:min(320px, 45vh); }
+
+  /* Música da fila (tom antes de tocar) */
+  .tm-meta{ display:flex; gap:22px; }
+  .tm-meta .k{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3); }
+  .tm-meta .v{ font-size:13.5px; font-weight:600; margin-top:3px; }
+  #tm-title{ font-family:'Montserrat',sans-serif; font-size:21px; margin:2px 0 0; }
+  #tm-pitch-row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:var(--sink); border:1px solid var(--line); }
+  #tm-pitch-row .k{ flex:1; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:var(--text-2); }
+  #tm-pitch-value{ font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:700; width:36px; text-align:center; color:var(--accent-2); }
+
+  /* "Pra quem é essa música?" — busca que é o dropdown */
+  .combo-list{ max-height:236px; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:4px; background:var(--glass); }
+  .opt{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; cursor:pointer; }
+  .opt:hover, .opt.hi{ background:var(--glass-3); }
+  .opt .nm{ flex:1; font-size:14px; font-weight:600; }
+  .opt .nm mark{ background:none; color:var(--accent-2); }
+  .opt .cnt{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-2); }
+  .opt.full{ opacity:.45; cursor:not-allowed; }
+  .opt.new .plus{ width:22px; height:22px; border-radius:7px; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .combo-empty{ font-size:12.5px; color:var(--text-2); padding:8px 10px; margin:0; }
+
+  /* Gerenciar cantores */
+  .mgr{ flex:1; min-height:0; display:grid; grid-template-columns:300px 1fr; border-top:1px solid var(--line); }
+  .mgr-left{ border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  #manage-singers-list{ flex:1; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:4px; }
+  .ms{ display:grid; grid-template-columns:22px 1fr auto; gap:8px; align-items:center; padding:9px 10px; border-radius:10px; cursor:pointer; border:1px solid transparent; }
+  .ms:hover{ background:var(--glass-2); }
+  .ms.sel{ background:var(--glass-3); border-color:var(--line-2); }
+  .ms .p{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-3); text-align:center; }
+  .ms .nm{ font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:7px; }
+  .ms .dotnow{ width:7px; height:7px; border-radius:50%; background:var(--grad); box-shadow:0 0 8px rgba(236,72,153,.7); }
+  .ms .c{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); margin-top:2px; }
+  .ms .acts, .ds .acts{ display:flex; gap:1px; }
+  .ms .acts{ opacity:0; }
+  .ms:hover .acts, .ms.sel .acts{ opacity:1; }
+  .ms .acts button, .ds .acts button{ width:24px; height:24px; border:0; background:none; border-radius:6px; cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
+  .ms .acts button:hover:not(:disabled), .ds .acts button:hover:not(:disabled){ background:var(--glass-3); color:var(--text); }
+  .ms .acts button:disabled, .ds .acts button:disabled{ opacity:.25; }
+  .ms .acts svg, .ds .acts svg{ width:13px; height:13px; }
+  .mgr-left .foot{ padding:10px; border-top:1px solid var(--line); }
+  .mgr-left .foot .btn{ width:100%; }
+  .mgr-right{ display:flex; flex-direction:column; min-height:0; }
+  #manage-singers-empty{ margin:auto; color:var(--text-3); font-size:13.5px; }
+  #manage-singers-detail{ display:flex; flex-direction:column; min-height:0; flex:1; }
+  .mgr-name{ display:flex; align-items:center; gap:10px; padding:16px 20px 4px; }
+  .mgr-move{ margin-left:auto; display:flex; gap:6px; }
+  .pos-edit{ cursor:text; border-radius:6px; }
+  .pos-edit:hover{ background:var(--glass-3); color:var(--text); }
+  .pos-input{ width:100%; max-width:34px; box-sizing:border-box; font:inherit; color:var(--text); text-align:center; background:var(--sink); border:1px solid var(--violet); border-radius:6px; padding:1px 0; }
+  #detail-singer-name{ font-family:'Montserrat',sans-serif; font-size:22px; margin:0; }
+  .mgr-tabs{ padding:8px 20px 10px; }
+  .mgr-body{ flex:1; overflow:auto; padding:0 20px 16px; display:flex; flex-direction:column; gap:6px; }
+  .ds{ display:grid; grid-template-columns:24px 1fr auto auto auto; gap:10px; align-items:center; padding:10px 12px; border-radius:11px; background:var(--glass); border:1px solid var(--line); }
+  .ds .n{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); text-align:center; }
+  .ds .t{ font-size:14px; font-weight:600; }
+  .ds .s{ font-size:12px; color:var(--text-2); margin-top:3px; display:flex; gap:6px; align-items:center; }
+  .ds .code{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-3); }
+  .ds.cur{ border-color:rgba(167,139,250,0.35); background:linear-gradient(90deg, rgba(139,92,246,0.12), transparent); }
+  .mini-pitch{ display:flex; align-items:center; gap:4px; padding:3px; border-radius:9px; background:var(--sink); border:1px solid var(--line); }
+  .mini-pitch button{ width:24px; height:24px; border-radius:6px; border:0; background:var(--glass-2); cursor:pointer; font-size:14px; }
+  .mini-pitch span{ font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; width:28px; text-align:center; color:var(--accent-2); }
+  #detail-add-song-search{ margin-top:6px; padding:12px; border-radius:12px; border:1px dashed var(--line-2); display:flex; flex-direction:column; gap:8px; }
+  .inrow{ display:flex; gap:8px; align-items:center; }
+  .inrow > .dsearch{ flex:1; }
+  .hist{ display:grid; grid-template-columns:52px 1fr auto; gap:10px; align-items:center; padding:9px 12px; border-radius:10px; }
+  .hist + .hist{ border-top:1px solid var(--line); }
+  .hist .tm{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-3); }
+  .hist .t{ font-size:13.5px; font-weight:600; }
+  .hist .s{ font-size:12px; color:var(--text-2); }
+  .empty-small{ font-size:13px; color:var(--text-3); margin:6px 2px; }
+
+  /* Relatório */
+  .stats{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .stat{ padding:14px 16px; border-radius:14px; background:var(--glass); border:1px solid var(--line); min-width:0; }
+  .stat .k{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-2); }
+  .stat .v{ font-family:'Montserrat',sans-serif; font-size:24px; font-weight:700; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stat.hl{ background:linear-gradient(135deg, rgba(139,92,246,0.22), rgba(236,72,153,0.14)); border-color:rgba(167,139,250,0.35); }
+  .stat.hl .v{ font-size:18px; }
+  .rwrap{ flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:14px; }
+  .rtable{ width:100%; border-collapse:collapse; font-size:13px; }
+  .rtable th{ text-align:left; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3); font-weight:500; padding:8px 10px; position:sticky; top:0; background:var(--pop-bg); }
+  .rtable td{ padding:9px 10px; border-top:1px solid var(--line); }
+  .rtable td:first-child, .rtable td:last-child{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-2); }
+
+  /* Boas-vindas */
+  .steps{ display:flex; flex-direction:column; gap:10px; }
+  .rot-modes{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:640px){ .rot-modes{ grid-template-columns:1fr; } }
+  .rot-mode{ display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; padding:20px 14px 16px; border-radius:14px; border:1px solid var(--line-2); background:var(--glass-2); color:var(--text); cursor:pointer; font:inherit; }
+  .rot-mode:hover, .rot-mode:focus-visible{ border-color:var(--violet); background:var(--glass-3); outline:none; }
+  .rot-mode svg{ width:34px; height:34px; color:var(--accent-text); }
+  .rot-t{ font-size:15px; font-weight:700; }
+  .rot-d{ font-size:12.5px; line-height:1.45; color:var(--text-2); }
+  .rot-tag{ margin-top:auto; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-text); }
+  .away-chip{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); border:1px dashed var(--line-2); border-radius:6px; padding:0 5px; margin-left:6px; }
+  .row.is-away .nm, .ms.is-away .nm, .row.is-away .l2{ opacity:.5; }
+  #detail-away-btn.on{ border-color:var(--violet); color:var(--accent-text); }
+  .table-chip{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-2); border:1px solid var(--line-2); border-radius:6px; padding:0 5px; margin-left:6px; }
+  .step{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; line-height:1.5; color:var(--text-2); }
+  .step b, .step strong{ color:var(--text); }
+  .step .no{ width:26px; height:26px; border-radius:50%; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; flex-shrink:0; }
+  .chk{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-2); cursor:pointer; }
+  .chk input{ accent-color:var(--violet); width:16px; height:16px; }
+
+  /* ================= Configurações ================= */
+  .settings{ width:min(980px, 100%); height:min(640px, 100%); display:grid; grid-template-columns:210px 1fr; overflow:hidden;
+    background:var(--pop-bg); border:1px solid var(--line-2); border-radius:20px; box-shadow:0 30px 80px rgba(0,0,0,0.35); }
+  .s-nav{ padding:18px 12px; border-right:1px solid var(--line); display:flex; flex-direction:column; gap:2px; background:rgba(0,0,0,0.15); overflow:auto; }
+  html[data-theme=light] .s-nav{ background:rgba(40,32,70,0.03); }
+  .s-nav h3{ font-family:'Montserrat',sans-serif; font-size:17px; margin:2px 10px 14px; }
+  .s-nav button{ display:flex; align-items:center; gap:10px; text-align:left; border:0; background:none; cursor:pointer; padding:9px 10px; border-radius:10px; font-size:13px; font-weight:500; color:var(--text-2); }
+  .s-nav button svg{ width:17px; height:17px; flex-shrink:0; }
+  .s-nav button:hover{ background:var(--glass-2); color:var(--text); }
+  .s-nav button.on{ background:var(--glass-3); color:var(--text); font-weight:600; }
+  .s-nav button.on svg{ color:#c4a8ff; }
+  #help-link{ display:flex; align-items:center; gap:10px; margin-top:auto; padding:9px 10px; border-radius:10px; font-size:13px; font-weight:600; color:var(--text); text-decoration:none; border:1px solid var(--line-2); background:var(--glass-2); }
+  #help-link:hover{ background:var(--glass-3); }
+  #help-link svg{ width:17px; height:17px; color:#c4a8ff; }
+  #version-tag{ padding:10px 10px 0; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-3); }
+  .s-main{ display:flex; flex-direction:column; min-height:0; }
+  .s-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 22px 12px; }
+  .s-head h4{ font-family:'Montserrat',sans-serif; font-size:19px; margin:0; }
+  .s-body{ flex:1; overflow:auto; padding:4px 22px 22px; }
+  .s-sec{ display:none; flex-direction:column; gap:10px; }
+  .s-sec.on{ display:flex; }
+  .s-card{ background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .s-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .s-row + .s-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .s-t{ font-size:14px; font-weight:600; }
+  .s-d{ font-size:12px; color:var(--text-2); margin-top:3px; line-height:1.45; }
+  .num{ width:62px; height:32px; border-radius:8px; border:1px solid var(--line-2); background:var(--sink); color:var(--text); text-align:center; font-family:'JetBrains Mono',monospace; font-size:13px; }
+  .s-range{ display:flex; align-items:center; gap:10px; min-width:240px; }
+  .s-range span{ font-family:'JetBrains Mono',monospace; font-size:12px; width:36px; text-align:right; }
+  .swatches{ display:flex; gap:14px; }
+  .swatch{ display:flex; flex-direction:column; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-2); letter-spacing:.06em; cursor:pointer; }
+  .swatch input{ width:36px; height:36px; border-radius:10px; border:2px solid var(--line-2); padding:0; background:none; cursor:pointer; }
+  .swatch input::-webkit-color-swatch-wrapper{ padding:2px; } .swatch input::-webkit-color-swatch{ border:0; border-radius:7px; }
+  #idle-image-filename{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2); }
+  .folder-row{ display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:12px; padding:10px 0; }
+  .folder-row + .folder-row{ border-top:1px solid var(--line); }
+  .folder-row .folder-icon svg{ width:20px; height:20px; color:#c4a8ff; }
+  .folder-name{ font-size:13.5px; font-weight:600; }
+  .folder-count{ font-size:12px; color:var(--text-2); margin-top:2px; }
+  .folder-count.warn{ color:#fb923c; }
+  #library-unsupported p{ margin:0; font-size:12.5px; color:var(--text-2); }
+  .pad-row{ display:grid; grid-template-columns:28px 1fr 1.2fr auto auto; align-items:center; gap:10px; padding:9px 0; }
+  .pad-row + .pad-row{ border-top:1px solid var(--line); }
+  .pad-row .n{ width:26px; height:26px; border-radius:8px; background:var(--glass-3); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; }
+  .pad-row .file{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pad-row .file.none{ color:var(--text-3); font-family:'Inter',sans-serif; font-style:italic; }
+  .kbd-table{ width:100%; border-collapse:collapse; }
+  .kbd-table th{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3); text-align:left; font-weight:500; padding:0 0 8px; }
+  .kbd-table td{ padding:8px 0; border-top:1px solid var(--line); font-size:13px; }
+  .kbd-table td:not(:first-child){ width:170px; }
+  kbd{ display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 7px; margin-right:4px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--text);
+    background:linear-gradient(180deg, rgba(var(--ov),0.12), rgba(var(--ov),0.04)); border:1px solid var(--line-2); box-shadow:0 2px 0 rgba(0,0,0,0.3); }
+  .about-hero{ text-align:center; padding:22px 20px 18px; background:linear-gradient(135deg, rgba(139,92,246,0.14), rgba(236,72,153,0.08)); }
+  .about-hero .brand{ display:inline-flex; align-items:center; gap:12px; }
+  .about-hero .brand img{ height:46px; }
+  .about-hero .brand .logo-tag{ font-size:15px; }
+  .about-lead{ margin:12px auto 0; max-width:520px; font-size:14px; line-height:1.55; color:var(--text); }
+  .about-p{ font-size:13.5px; line-height:1.6; color:var(--text-2); margin:8px 0 0; }
+  .about-p b{ color:var(--text); }
+  .about-links{ display:flex; gap:10px; flex-wrap:wrap; }
+  .about-btn{ display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 16px; border-radius:11px; text-decoration:none; color:var(--text); font-size:13px; font-weight:600; background:var(--glass-2); border:1px solid var(--line-2); }
+  .about-btn:hover{ background:var(--glass-3); }
+  .about-btn svg{ width:18px; height:18px; }
+  .about-btn.primary{ background:var(--grad); border-color:transparent; color:#fff; box-shadow:0 6px 18px rgba(139,92,246,0.35); }
+  .about-foot{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-3); line-height:1.6; padding:2px 2px 0; }
+
+  /* Soltar arquivo em qualquer lugar */
+  #drop-overlay{ position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; background:rgba(12,11,16,0.88); pointer-events:none; }
+  html[data-theme=light] #drop-overlay{ background:rgba(241,239,246,0.92); }
+  #drop-overlay div{ border:2px dashed rgba(196,160,255,0.7); border-radius:24px; padding:40px 60px; font-family:'Montserrat',sans-serif; font-size:22px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= TOPO ================= -->
+  <header class="top">
+    <div class="logo"><img class="brand-logo" src="../assets/logo.svg" alt="PlayKaraoke"/><span class="logo-tag">PLAYER</span></div>
+    <div class="search" id="search">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
+      <input id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Song, artist or code…" autocomplete="off" spellcheck="false"/>
+      <button id="search-clear-btn" class="hidden" type="button" data-i18n-title="library_clear_btn" title="Clear"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+      <div class="seg" id="search-source-toggle">
+        <button type="button" class="on" id="search-source-device-btn" data-i18n="library_source_device">Devices</button>
+        <button type="button" id="search-source-online-btn" data-i18n="library_source_online">YouTube</button>
+      </div>
+      <div class="results hidden" id="search-results"></div>
+    </div>
+    <div class="pills">
+      <button class="pill" id="quick-second-screen-btn" type="button" data-i18n-title="pill_second_screen_title" title="Open/close the second screen"><span class="dot"></span><span data-i18n="pill_second_screen">Second Screen</span></button>
+      <button class="pill" id="quick-autoplay-btn" type="button" data-i18n-title="pill_autoplay_title" title="Autoplay"><span class="dot"></span><span data-i18n="pill_autoplay">Autoplay</span></button>
+      <button class="pill" id="quick-applause-btn" type="button" data-i18n-title="pill_applause_title" title="Applause"><span class="dot"></span><span data-i18n="pill_applause">Applause</span></button>
+      <button class="pill" id="quick-ambient-btn" type="button" data-i18n-title="pill_ambient_title" title="Ambient"><span class="dot"></span><span data-i18n="pill_ambient">Ambient</span></button>
+    </div>
+    <button class="gear" id="settings-btn" type="button" data-i18n-title="settings_title" title="Settings"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 3.9c.1-.5.6-.9 1.1-.9h2.6c.6 0 1 .4 1.1.9l.2 1.3c.1.4.3.7.6.9l.2.1c.3.2.7.3 1.1.1l1.2-.5c.5-.2 1.1 0 1.4.5l1.3 2.2c.3.5.2 1.1-.3 1.4l-1 .8c-.3.2-.4.6-.4 1v.3c0 .4.1.7.4 1l1 .8c.4.4.5 1 .3 1.4l-1.3 2.2c-.3.5-.8.7-1.4.5l-1.2-.5c-.4-.1-.8-.1-1.1.1l-.2.1c-.3.2-.6.5-.6.9l-.2 1.3c-.1.5-.6.9-1.1.9h-2.6c-.6 0-1-.4-1.1-.9l-.2-1.3c-.1-.4-.3-.7-.6-.9l-.2-.1c-.3-.2-.7-.3-1.1-.1l-1.2.5c-.5.2-1.1 0-1.4-.5l-1.3-2.2c-.3-.5-.2-1.1.3-1.4l1-.8c.3-.2.4-.6.4-1v-.3c0-.4-.1-.7-.4-1l-1-.8c-.4-.4-.5-1-.3-1.4l1.3-2.2c.3-.5.8-.7 1.4-.5l1.2.5c.4.1.8.1 1.1-.1l.2-.1c.3-.2.6-.5.6-.9l.2-1.3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
+    <button class="mode-btn" id="show-mode-btn" type="button">
+      <svg id="show-mode-icon-start" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.4-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5Z"/></svg>
+      <svg id="show-mode-icon-end" class="hidden" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      <span id="show-mode-btn-label" data-i18n="start_show_mode">Start Show Mode</span>
+    </button>
+  </header>
+
+  <!-- ================= CORPO ================= -->
+  <main class="body">
+    <section class="panel list-col">
+      <div class="drop" id="sidebar-dropzone" role="button" tabindex="0">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/></svg>
+        <span data-i18n="dropzone_text">Drag karaoke files here</span>
+      </div>
+      <div class="list-head"><span class="label" id="playlist-count">Queue<em>0</em></span></div>
+      <div class="list" id="playlist"></div>
+      <div class="list hidden" id="singer-round-view">
+        <p class="list-empty" id="current-singer-empty"><strong data-i18n="no_singers_yet">No singers in the rotation yet.</strong><br/><span data-i18n="no_singers_hint">Add music — you'll be asked which singer it's for.</span></p>
+        <div id="singer-list-full" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <div class="list-foot">
+        <button class="btn" id="clear-queue-btn" type="button" data-i18n="clear_queue_btn">Clear queue</button>
+        <button class="btn hidden" id="add-singer-btn" type="button" data-i18n="add_singer_btn">+ Add singer</button>
+        <button class="btn hidden" id="manage-singers-sidebar-btn" type="button" data-i18n="settings_manage_singers_btn">Manage singers</button>
+      </div>
+    </section>
+
+    <section class="player-col">
+      <div class="panel" id="stage">
+        <div id="banners">
+          <div id="error-banner" class="banner error hidden"></div>
+          <div id="loading-banner" class="banner loading hidden" data-i18n="loading_file">Loading file…</div>
+        </div>
+
+        <div id="stage-empty" role="button" tabindex="0">
+          <svg fill="none" stroke="currentColor" stroke-width="1.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/></svg>
+          <h2 data-i18n="stage_drop_title">Drop a karaoke file here</h2>
+          <p data-i18n="stage_drop_desc">Drag one or more .ZIP (MP3+G) or .MP4 files — or click to choose files from your computer.</p>
+        </div>
+
+        <div class="media hidden" id="stage-canvas-wrap">
+          <canvas id="cdg-canvas" width="900" height="648"></canvas>
+          <button id="fullscreen-btn" type="button" data-i18n-title="fullscreen_btn" title="Fullscreen"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg></button>
+        </div>
+        <div class="media hidden" id="stage-video-wrap"><video id="video-el" playsinline></video></div>
+        <div class="media hidden" id="stage-youtube-wrap"><div id="youtube-host"></div></div>
+        <div class="hidden" id="stage-remote-placeholder">
+          <img id="remote-thumb" class="hidden" alt=""/>
+          <div id="remote-title"></div>
+          <div id="remote-hint" data-i18n="remote_playing_hint">Playing on the second screen</div>
+        </div>
+
+        <div id="idle-overlay" class="hidden">
+          <img id="idle-logo" src="../assets/logo.svg" alt=""/>
+          <div id="idle-custom-image" class="hidden"></div>
+        </div>
+
+        <div id="countdown-overlay" class="hidden">
+          <div id="countdown-timer-parts">
+            <span class="cd-label" data-i18n="cd_label_starts_in">The song starts in:</span>
+            <span id="cd-number">10</span>
+            <span id="cd-next-title"></span>
+          </div>
+          <div id="cd-singer-highlight" class="hidden">
+            <span class="cd-a-seguir-label" data-i18n="cd_label_up_next">Up next:</span>
+            <div id="cd-singer-card">
+              <div id="cd-singer-name-display">—</div>
+              <div id="cd-singer-song-display">—</div>
+              <div id="cd-singer-tone-display" class="hidden" data-i18n="waiting_for_song">Waiting for song selection</div>
+            </div>
+          </div>
+          <div id="cd-upcoming-section">
+            <span class="cd-proximas-label" data-i18n="cd_label_upcoming">Upcoming singers:</span>
+            <div id="cd-upcoming-list"></div>
+          </div>
+          <button id="cd-skip-btn" class="hidden" type="button"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.4-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5Z"/></svg><span data-i18n="cd_start_now_btn">Start now</span></button>
+        </div>
+      </div>
+
+      <div class="panel deck">
+        <div class="meta">
+          <div class="f singer hidden" id="meta-singer-field"><div class="k" data-i18n="meta_singer_label">Singer</div><div class="v" id="meta-singer">—</div></div>
+          <div class="f"><div class="k" data-i18n="track_modal_code">Code</div><div class="v" id="meta-code">—</div></div>
+          <div class="f"><div class="k" data-i18n="track_modal_artist">Artist</div><div class="v" id="meta-artist">—</div></div>
+          <div class="f song"><div class="k" data-i18n="meta_song_label">Song</div><div class="v none" id="meta-song">No music loaded</div></div>
+          <div class="f fmt-f"><div class="k" data-i18n="track_modal_format">Format</div><div class="v" id="meta-format"></div></div>
+        </div>
+        <div class="seek">
+          <span class="t" id="time-current">0:00</span>
+          <input type="range" id="seek-bar" min="0" max="1000" value="0"/>
+          <span class="t r" id="time-duration">0:00</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="transport">
+            <button id="play-btn" type="button" disabled data-i18n-title="play_btn_title" title="Play / Pause">
+              <svg id="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.4-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5Z"/></svg>
+              <svg id="pause-icon" class="hidden" fill="currentColor" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>
+            </button>
+            <button class="round" id="restart-btn" type="button" disabled data-i18n-title="restart_btn_title" title="Restart from the beginning"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 1 0 2.35-5.65M4 4v4.5h4.5"/></svg></button>
+            <button class="round" id="stop-btn" type="button" disabled data-i18n-title="stop_btn_title" title="Stop"><svg fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+            <button class="round" id="next-btn" type="button" disabled data-i18n-title="next_btn_title" title="Next song"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 6.5v11a1 1 0 0 0 1.5.9l8-5.5a1 1 0 0 0 0-1.7l-8-5.5A1 1 0 0 0 6 6.5Z"/><rect x="16.5" y="5.5" width="2.2" height="13" rx="1"/></svg></button>
+          </div>
+          <div class="vol">
+            <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.1 5.6a9 9 0 0 1 0 12.8M16.5 8.3a5.3 5.3 0 0 1 0 7.4M6.8 8.3l4.7-4.7a.8.8 0 0 1 1.3.5v15.8a.8.8 0 0 1-1.3.5l-4.7-4.7H4.5c-.9 0-1.7-.5-1.9-1.4A9 9 0 0 1 2.3 12c0-.8.1-1.6.3-2.4.2-.9 1-1.4 1.9-1.4h2.3Z"/></svg>
+            <input type="range" id="volume-slider" min="0" max="100" value="90"/>
+            <span id="volume-pct">90%</span>
+          </div>
+          <div class="pitch">
+            <span class="k" data-i18n="tom_label">PITCH</span>
+            <button class="pb" id="pitch-down-btn" type="button" data-i18n-title="pitch_down_title" title="Decrease one semitone">−</button>
+            <span id="pitch-value">0</span>
+            <button class="pb" id="pitch-up-btn" type="button" data-i18n-title="pitch_up_title" title="Increase one semitone">+</button>
+            <button id="pitch-reset-btn" type="button" data-i18n-title="pitch_reset_title" title="Reset pitch">RESET</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel pads">
+        <span class="label" data-i18n="pads_label">Pads</span>
+        <div class="pads-grid" id="pads-grid"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ================= MODAIS ================= -->
+
+<!-- Música da fila: tom antes de tocar -->
+<div class="modal-back hidden" id="track-modal-backdrop"><div class="dlg">
+  <div class="dlg-body">
+    <div class="tm-meta">
+      <div><div class="k" data-i18n="track_modal_code">Code</div><div class="v" id="tm-code">—</div></div>
+      <div><div class="k" data-i18n="track_modal_artist">Artist</div><div class="v" id="tm-artist">—</div></div>
+      <div><div class="k" data-i18n="track_modal_format">Format</div><div class="v" id="tm-format">—</div></div>
+    </div>
+    <h3 id="tm-title">—</h3>
+    <div id="tm-pitch-row">
+      <span class="k" data-i18n="tm_pitch_label">INITIAL PITCH</span>
+      <button class="pb" id="tm-pitch-down-btn" type="button">−</button>
+      <span id="tm-pitch-value">0</span>
+      <button class="pb" id="tm-pitch-up-btn" type="button">+</button>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" id="tm-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button>
+    <button class="btn" id="tm-apply-btn" type="button" data-i18n="tm_apply_btn">Apply pitch</button>
+    <button class="btn primary" id="tm-play-btn" type="button" data-i18n="tm_play_btn">Play</button>
+  </div>
+</div></div>
+
+<!-- Para quem é essa música? -->
+<div class="modal-back hidden" id="singer-picker-backdrop"><div class="dlg">
+  <div class="dlg-head"><h3 data-i18n="singer_picker_title">Who is this song for?</h3><button class="close-x" id="singer-picker-cancel-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
+  <p class="dlg-sub" id="singer-picker-filename"></p>
+  <div class="dlg-body">
+    <input class="txt" id="singer-picker-input" data-i18n-placeholder="singer_picker_placeholder" placeholder="Type a singer name…" autocomplete="off" style="height:42px;font-size:14px"/>
+    <div class="combo-list" id="singer-picker-list"></div>
+    <p class="s-d" style="margin:0" data-i18n="singer_picker_hint">Pick a singer, or type a new name and press Enter to create them.</p>
+  </div>
+</div></div>
+
+<!-- Trocar música do cantor da vez -->
+<div class="modal-back hidden" id="swap-song-backdrop"><div class="dlg">
+  <div class="dlg-head"><h3 id="swap-song-title">—</h3></div>
+  <p class="dlg-sub" id="swap-song-current"></p>
+  <div class="dlg-body">
+    <div class="dsearch">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
+      <input id="swap-song-search" autocomplete="off"/>
+      <div class="seg" id="swap-source-toggle">
+        <button type="button" class="on" id="swap-source-device-btn" data-i18n="library_source_device">Devices</button>
+        <button type="button" id="swap-source-online-btn" data-i18n="library_source_online">YouTube</button>
+      </div>
+    </div>
+    <div class="dres-list" id="swap-song-results"></div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" id="swap-song-upload-btn" class="btn" data-i18n="detail_upload_btn">Upload file</button>
+    <span class="grow"></span>
+    <button type="button" id="swap-song-cancel-btn" class="btn" data-i18n="tm_cancel_btn">Cancel</button>
+  </div>
+  <input type="file" id="swap-song-file-input" accept=".zip,.mp4" class="hidden"/>
+</div></div>
+
+<!-- Gerenciar cantores -->
+<div class="modal-back hidden" id="manage-singers-backdrop"><div class="dlg wide">
+  <div class="dlg-head"><h3 data-i18n="manage_singers_title">Manage singers</h3><button class="close-x" id="manage-singers-close-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
+  <div class="mgr">
+    <div class="mgr-left">
+      <div class="label" style="padding:12px 20px 0" data-i18n="manage_singers_night_list">Night list</div>
+      <div id="manage-singers-list"></div>
+      <div class="foot"><button class="btn" id="add-new-singer-btn" type="button" data-i18n="manage_singers_add_new">+ Add new singer</button></div>
+    </div>
+    <div class="mgr-right">
+      <div id="manage-singers-empty" data-i18n="manage_singers_select_hint">Select a singer from the list on the left.</div>
+      <div id="manage-singers-detail" class="hidden">
+        <div class="mgr-name"><h4 id="detail-singer-name">—</h4><button class="icon-btn" id="detail-edit-name-btn" type="button" data-i18n-title="edit_name_title" title="Rename"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.9 4.5 1.7-1.7a1.9 1.9 0 1 1 2.6 2.6L10.6 16a4.5 4.5 0 0 1-1.9 1.1L6 18l.8-2.7a4.5 4.5 0 0 1 1.1-1.9l9-8.9Zm0 0 2.6 2.6"/></svg></button><span class="chip is-now hidden" id="detail-singing-chip" data-i18n="singing_chip">SINGING</span><button class="btn sm ghost hidden" id="detail-table-btn" type="button" data-i18n-title="table_edit_title" title="Change table"></button><span class="mgr-move"><button class="btn sm ghost" id="detail-away-btn" type="button" data-i18n-title="away_title" title="Stays in the list, but their turn is skipped until they're back">Away</button><button class="btn sm ghost" id="detail-sing-next-btn" type="button" data-i18n="sing_next_btn" data-i18n-title="sing_next_title" title="Right after the current singer">Sing next</button><button class="btn sm ghost" id="detail-sing-last-btn" type="button" data-i18n="sing_last_btn" data-i18n-title="sing_last_title" title="Sings last in the round">Move to end</button></span></div>
+        <div class="mgr-tabs"><div class="seg" style="display:inline-flex">
+          <button type="button" class="on" id="detail-tab-queue-btn" data-i18n="manage_singers_tab_queue">Waiting queue</button>
+          <button type="button" id="detail-tab-history-btn" data-i18n="manage_singers_tab_history">Songs sung</button>
+        </div></div>
+        <div class="mgr-body">
+          <div id="detail-queue-panel" style="display:flex;flex-direction:column;gap:6px">
+            <div id="detail-queue-list" style="display:flex;flex-direction:column;gap:6px"></div>
+            <button class="btn" id="detail-add-song-btn" type="button" data-i18n="manage_singers_add_song_btn">+ Add song</button>
+            <div id="detail-add-song-search" class="hidden">
+              <div class="inrow">
+                <div class="dsearch">
+                  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
+                  <input id="detail-song-search-input" data-i18n-placeholder="manage_singers_search_placeholder" placeholder="Search to add a song…" autocomplete="off"/>
+                  <div class="seg" id="detail-source-toggle">
+                    <button type="button" class="on" id="detail-source-device-btn" data-i18n="library_source_device">Devices</button>
+                    <button type="button" id="detail-source-online-btn" data-i18n="library_source_online">YouTube</button>
+                  </div>
+                </div>
+                <button class="btn" id="detail-upload-file-btn" type="button" style="height:40px" data-i18n="detail_upload_btn">Upload</button>
+                <input type="file" id="detail-upload-file-input" accept=".zip,.mp4" multiple class="hidden"/>
+              </div>
+              <div class="dres-list" id="detail-song-search-results"></div>
+            </div>
+          </div>
+          <div id="detail-history-panel" class="hidden"><div id="detail-history-list"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- Boas-vindas ao Modo Show -->
+<div class="modal-back hidden" id="show-mode-welcome-backdrop"><div class="dlg">
+  <div class="dlg-head"><h3 data-i18n="welcome_title">Welcome to Show Mode</h3></div>
+  <div class="dlg-body">
+    <p data-i18n="welcome_intro">The queue becomes a rotation of <strong>singers</strong>, each with up to 5 songs. The turn moves to the next singer on its own.</p>
+    <div class="steps">
+      <div class="step"><span class="no">1</span><span data-i18n="welcome_step1">Add music as usual — you'll be asked <strong>who it's for</strong>. Type a new name to create the singer.</span></div>
+      <div class="step"><span class="no">2</span><span data-i18n="welcome_step2">Next you choose the rotation type (order of arrival, fit in or by table). Drag or click the number to reorder.</span></div>
+      <div class="step"><span class="no">3</span><span data-i18n="welcome_step3">Hit play. Use <strong>Change song</strong> for last-minute requests and <strong>Manage singers</strong> for everything else.</span></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="welcome-dont-show-again"/><span data-i18n="welcome_dont_show_again">Don't show this again</span></label>
+  </div>
+  <div class="dlg-foot"><button class="btn" id="welcome-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button><button class="btn primary" id="welcome-start-btn" type="button" data-i18n="welcome_start_btn">Got it, start Show Mode</button></div>
+</div></div>
+
+<!-- Tipo de rodízio (ao iniciar o Modo Show) -->
+<div class="modal-back hidden" id="rotation-mode-backdrop"><div class="dlg" style="width:min(780px,100%)">
+  <div class="dlg-head"><h3 data-i18n="rotation_title">How will the rotation work?</h3></div>
+  <div class="dlg-body">
+    <div class="rot-modes">
+      <button type="button" class="rot-mode" data-mode="arrival"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/></svg><span class="rot-t" data-i18n="rotation_arrival">Order of arrival</span><span class="rot-d" data-i18n="rotation_arrival_desc">Newcomers sing last in the current round, after everyone who was already waiting.</span><span class="rot-tag" data-i18n="rotation_default">Default</span></button>
+      <button type="button" class="rot-mode" data-mode="fit"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75 3.75m0 0-3.75 3.75m3.75-3.75H3.74V4.499"/></svg><span class="rot-t" data-i18n="rotation_fit">Fit in</span><span class="rot-d" data-i18n="rotation_fit_desc">Newcomers go about 5 songs after the current singer, but never ahead of someone who hasn't sung yet.</span></button>
+      <button type="button" class="rot-mode" data-mode="table"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25h18M5.25 8.25V19.5m13.5-11.25V19.5M8.25 8.25 9 4.5h6l.75 3.75M5.25 14.25h13.5"/></svg><span class="rot-t" data-i18n="rotation_table">By table</span><span class="rot-d" data-i18n="rotation_table_desc">Each singer has a table. At most 2 singers per table each round; the others sing in the next round.</span></button>
+    </div>
+  </div>
+  <div class="dlg-foot"><button class="btn" id="rotation-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button></div>
+</div></div>
+
+<!-- Encerrar show -->
+<div class="modal-back hidden" id="end-show-confirm-backdrop"><div class="dlg" style="width:min(400px,100%)">
+  <div class="dlg-head"><h3 data-i18n="end_show_confirm_title">End the show?</h3></div>
+  <div class="dlg-body"><p data-i18n="end_show_confirm_desc">You'll see the night's report and can export it before everything is cleared.</p></div>
+  <div class="dlg-foot"><button class="btn" id="end-show-confirm-cancel-btn" type="button" data-i18n="end_show_confirm_cancel">Cancel</button><button class="btn primary" id="end-show-confirm-ok-btn" type="button" data-i18n="end_show_confirm_ok">End show</button></div>
+</div></div>
+
+<!-- Relatório do show -->
+<div class="modal-back hidden" id="show-report-backdrop"><div class="dlg wide">
+  <div class="dlg-head"><h3 data-i18n="show_report_title">Show report</h3><button class="close-x" id="show-report-close-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
+  <p class="dlg-sub" id="report-subtitle"></p>
+  <div class="dlg-body" style="flex:1;min-height:0">
+    <div class="stats">
+      <div class="stat"><div class="k" data-i18n="report_duration">Duration</div><div class="v" id="report-duration">—</div></div>
+      <div class="stat"><div class="k" data-i18n="report_total_songs">Songs sung</div><div class="v" id="report-total-songs">—</div></div>
+      <div class="stat"><div class="k" data-i18n="report_unique_singers">Singers</div><div class="v" id="report-unique-singers">—</div></div>
+      <div class="stat hl"><div class="k" data-i18n="report_highlight">Highlight of the night</div><div class="v" id="report-highlight">—</div></div>
+    </div>
+    <div class="rwrap"><table class="rtable">
+      <thead><tr><th data-i18n="report_col_time">Time</th><th data-i18n="report_col_singer">Singer</th><th data-i18n="report_col_song">Song</th><th data-i18n="report_col_artist">Artist</th><th data-i18n="report_col_pitch">Pitch</th></tr></thead>
+      <tbody id="show-report-tbody"></tbody>
+    </table></div>
+  </div>
+  <div class="dlg-foot"><button class="btn" id="new-show-btn" type="button" data-i18n="new_show_btn">Start new show</button><button class="btn primary" id="export-csv-btn" type="button" data-i18n="export_csv_btn">Export CSV</button></div>
+</div></div>
+
+<!-- Pergunta / confirmação genéricas -->
+<div class="modal-back hidden" id="generic-prompt-backdrop"><div class="dlg" style="width:min(400px,100%)">
+  <div class="dlg-head"><h3 id="generic-prompt-title">—</h3></div>
+  <div class="dlg-body"><input class="txt" type="text" id="generic-prompt-input" style="height:40px"/></div>
+  <div class="dlg-foot"><button class="btn" id="generic-prompt-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button><button class="btn primary" id="generic-prompt-ok-btn" type="button" data-i18n="generic_ok_btn">OK</button></div>
+</div></div>
+<div class="modal-back hidden" id="generic-confirm-backdrop"><div class="dlg" style="width:min(400px,100%)">
+  <div class="dlg-body" style="padding-top:20px"><p id="generic-confirm-message" style="color:var(--text)">—</p></div>
+  <div class="dlg-foot"><button class="btn" id="generic-confirm-cancel-btn" type="button" data-i18n="tm_cancel_btn">Cancel</button><button class="btn primary" id="generic-confirm-ok-btn" type="button" data-i18n="generic_ok_btn">OK</button></div>
+</div></div>
+
+<!-- Configurações -->
+<div class="modal-back hidden" id="settings-modal-backdrop"><div class="settings">
+  <nav class="s-nav" id="settings-nav">
+    <h3 data-i18n="settings_title">Settings</h3>
+    <button type="button" class="on" data-sec="general"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/></svg><span data-i18n="settings_sec_general">General</span></button>
+    <button type="button" data-sec="playback"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.9 11.7a.4.4 0 0 1 0 .6l-5.3 3.1a.4.4 0 0 1-.6-.3V8.9a.4.4 0 0 1 .6-.3l5.3 3.1Z"/></svg><span data-i18n="settings_sec_playback">Playback</span></button>
+    <button type="button" data-sec="display"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 20.25h12m-7.5-3v3m3-3v3m-10.1-3h16.2c.6 0 1.1-.5 1.1-1.1V5.1c0-.6-.5-1.1-1.1-1.1H3.9c-.6 0-1.1.5-1.1 1.1v11c0 .6.5 1.1 1.1 1.1Z"/></svg><span data-i18n="settings_sec_display">Display</span></button>
+    <button type="button" data-sec="show"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.1a9.4 9.4 0 0 0 2.6.4 9.3 9.3 0 0 0 4.1-1 4.1 4.1 0 0 0-7.5-2.5M15 19.1v-.1c0-1.1-.3-2.2-.8-3.1M15 19.1v.1A12.3 12.3 0 0 1 8.6 21c-2.3 0-4.5-.6-6.4-1.8v-.1a6.4 6.4 0 0 1 12-3.1M12 6.4a3.4 3.4 0 1 1-6.8 0 3.4 3.4 0 0 1 6.8 0Zm8.3 2.2a2.6 2.6 0 1 1-5.3 0 2.6 2.6 0 0 1 5.3 0Z"/></svg><span data-i18n="settings_sec_show">Show Mode</span></button>
+    <button type="button" data-sec="library"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg><span data-i18n="settings_sec_library">Library</span></button>
+    <button type="button" data-sec="pads"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg><span data-i18n="settings_sec_pads">Pads</span></button>
+    <button type="button" data-sec="shortcuts"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.2"/><path stroke-linecap="round" d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9"/></svg><span data-i18n="settings_sec_shortcuts">Shortcuts</span></button>
+    <button type="button" data-sec="about"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg><span data-i18n="settings_sec_about">About</span></button>
+    <a id="help-link" href="help.html" target="_blank" rel="noopener"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg><span data-i18n="help_link">Help &amp; manual</span><span style="margin-left:auto;opacity:.6">↗</span></a>
+    <div id="version-tag">PlayKaraoke Player v3.1.1 (anterior)</div>
+  </nav>
+  <div class="s-main">
+    <div class="s-head"><h4 id="settings-title" data-i18n="settings_sec_general">General</h4><button class="close-x" id="settings-close-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
+    <div class="s-body">
+
+      <section class="s-sec on" data-sec="general">
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_language_title">Language</div><div class="s-d" data-i18n="settings_language_desc">The second screen follows automatically.</div></div>
+          <div class="seg" id="language-seg"><button type="button" data-lang="en">English</button><button type="button" data-lang="pt">Português</button></div></div></div>
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_theme_title">Theme</div><div class="s-d" data-i18n="settings_theme_desc">Dark is recommended for shows (less glare in dark venues).</div></div>
+          <div class="seg" id="theme-seg"><button type="button" data-theme="dark" data-i18n="theme_dark">Dark</button><button type="button" data-theme="light" data-i18n="theme_light">Light</button></div></div></div>
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_performance_mode_title">Performance mode</div><div class="s-d" data-i18n="settings_performance_mode_desc">For older computers: CDG lyrics use much less processing. The look changes very slightly.</div></div>
+          <button class="sw" id="light-mode-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div></div>
+      </section>
+
+      <section class="s-sec" data-sec="playback">
+        <div class="s-card">
+          <div class="s-row"><div><div class="s-t" data-i18n="settings_autoplay_title">Autoplay</div><div class="s-d" data-i18n="settings_autoplay_desc">After a song ends, the next one starts on its own after a countdown.</div></div><button class="sw" id="autoplay-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div><div class="s-t" data-i18n="settings_wait_title">Wait between songs</div><div class="s-d" data-i18n="settings_wait_desc">Countdown shown on both screens.</div></div><div style="display:flex;align-items:center;gap:8px"><input class="num" type="number" id="autoplay-delay-input" min="0" max="60" value="10"/><span class="s-d" style="margin:0" data-i18n="seconds">seconds</span></div></div>
+        </div>
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_applause_title">Automatic applause</div><div class="s-d" data-i18n="settings_applause_desc">Plays in the last seconds of each song (earlier if the song goes silent).</div></div><button class="sw" id="applause-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div></div>
+        <div class="s-card">
+          <div class="s-row"><div><div class="s-t" data-i18n="settings_ambient_title">Ambient music</div><div class="s-d" data-i18n="settings_ambient_desc">Plays only between performances, when nothing else is playing.</div></div><button class="sw" id="ambient-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div class="s-t" data-i18n="settings_volume">Volume</div><div class="s-range"><input type="range" id="ambient-volume-slider" min="0" max="100" value="30"/><span id="ambient-volume-pct">30%</span></div></div>
+          <div class="s-row"><div style="min-width:0"><div class="s-t" data-i18n="settings_ambient_source">Source</div><div class="s-d" id="ambient-custom-row"><span id="ambient-folder-info"></span></div></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+              <div class="seg"><button type="button" class="on" id="ambient-source-builtin-btn" data-i18n="ambient_source_builtin">App songs</button><button type="button" id="ambient-source-custom-btn" data-i18n="ambient_source_custom">My songs</button></div>
+              <button type="button" id="ambient-choose-folder-btn" class="btn sm" data-i18n="ambient_choose_folder">Choose folder</button>
+            </div></div>
+          <input type="file" id="ambient-folder-input" webkitdirectory multiple class="hidden"/>
+        </div>
+      </section>
+
+      <section class="s-sec" data-sec="display">
+        <div class="s-card"><div class="s-row"><div style="min-width:0"><div class="s-t" data-i18n="settings_idle_image_title">Background image</div><div class="s-d" data-i18n="settings_idle_image_desc">Shown on both screens when nothing is playing. Ideal size 1920×1080.</div><div id="idle-image-filename" class="hidden"></div></div>
+          <div style="display:flex;gap:8px;flex-shrink:0"><button class="btn sm primary" id="idle-image-upload-btn" type="button" data-i18n="settings_idle_image_upload">Upload image</button><button class="btn sm ghost hidden" id="idle-image-remove-btn" type="button" data-i18n="settings_idle_image_remove">Remove</button></div></div>
+          <input type="file" id="idle-image-input" accept="image/*" class="hidden"/></div>
+        <div class="s-card">
+          <div class="s-row"><div><div class="s-t"><span data-i18n="settings_colors_title">Custom CDG colors</span> <span class="fmt" style="margin-left:6px" data-i18n="experimental">EXPERIMENTAL</span></div><div class="s-d" data-i18n="settings_colors_desc">Recolor background, lyrics and sync highlight. CDG songs only.</div></div><button class="sw" id="custom-colors-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div class="swatches">
+            <label class="swatch"><input type="color" id="color-background" value="#0e0e0e"/><span data-i18n="color_background">BACKGROUND</span></label>
+            <label class="swatch"><input type="color" id="color-text" value="#ffffff"/><span data-i18n="color_text">TEXT</span></label>
+            <label class="swatch"><input type="color" id="color-highlight" value="#a78bfa"/><span data-i18n="color_highlight">HIGHLIGHT</span></label>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="s-sec" data-sec="show">
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_rotation_title">Rotation type</div><div class="s-d" data-i18n="settings_rotation_desc">Where newcomers go in the rotation. Changing it doesn't move anyone already in the list.</div></div>
+          <div class="seg" id="rotation-mode-seg"><button type="button" data-mode="arrival" data-i18n="rotation_arrival">Order of arrival</button><button type="button" data-mode="fit" data-i18n="rotation_fit">Fit in</button><button type="button" data-mode="table" data-i18n="rotation_table">By table</button></div></div></div>
+        <div class="s-card">
+          <div class="s-t" style="margin-bottom:4px" data-i18n="settings_waiting_screen">Waiting screen (between singers)</div>
+          <div class="s-row"><div class="s-d" style="margin:0;color:var(--text)" data-i18n="settings_show_upcoming">Show upcoming singers</div><button class="sw" id="cd-show-upcoming-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div class="s-d" style="margin:0;color:var(--text)" data-i18n="settings_show_titles">Show song titles</div><button class="sw" id="cd-show-titles-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div class="s-d" style="margin:0;color:var(--text)" data-i18n="settings_show_counter">Show autoplay countdown</div><button class="sw" id="cd-show-counter-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+        </div>
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="settings_manage_singers_btn">Manage singers</div><div class="s-d" data-i18n="settings_manage_singers_desc">Rename, reorder and edit each singer's songs.</div></div><button class="btn sm" id="open-manage-singers-btn" type="button" data-i18n="open_btn">Open</button></div></div>
+      </section>
+
+      <section class="s-sec" data-sec="library">
+        <div class="s-card hidden" id="library-unsupported"><p data-i18n="library_unsupported">Your browser doesn't support this feature — it works on Chrome, Edge and Opera.</p></div>
+        <div class="s-card">
+          <div class="s-row" style="margin-bottom:6px"><div><div class="s-t" data-i18n="library_folders_label">Connected folders</div><div class="s-d" data-i18n="library_folders_desc">Indexed once and remembered. Use ↻ after adding or removing files. Chrome / Edge.</div></div><button class="btn sm primary" id="connect-folder-btn" type="button" data-i18n="library_connect_folder_btn">+ Connect folder</button></div>
+          <div id="library-folders-list"></div>
+        </div>
+      </section>
+
+      <section class="s-sec" data-sec="pads">
+        <div class="s-card">
+          <div class="s-d" style="margin:0 0 6px" data-i18n="pads_desc">One tap fires the sound from the start (tapping again restarts it). Pads can play together. Keys 1–6 when shortcuts are on.</div>
+          <div id="pads-settings-list"></div>
+          <div class="s-row"><span></span><button class="btn sm ghost" id="pads-restore-btn" type="button" data-i18n="pads_restore">Restore default pads</button></div>
+        </div>
+        <input type="file" id="pad-file-input" accept="audio/*,.mp3,.wav,.m4a,.ogg" class="hidden"/>
+      </section>
+
+      <section class="s-sec" data-sec="shortcuts">
+        <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="shortcuts_enable">Enable keyboard shortcuts</div><div class="s-d" data-i18n="shortcuts_desc">Off by default, so a bump on the keyboard can't disrupt the show. Never active while typing or with a window open.</div></div><button class="sw" id="shortcuts-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div></div>
+        <div class="s-card"><table class="kbd-table">
+          <thead><tr><th data-i18n="shortcuts_action">Action</th><th>Mac</th><th>Windows</th></tr></thead>
+          <tbody>
+            <tr><td data-i18n="sc_play">Play / Pause</td><td><kbd data-i18n="key_space">Space</kbd></td><td><kbd data-i18n="key_space">Space</kbd></td></tr>
+            <tr><td data-i18n="sc_restart">Restart song</td><td><kbd>⌘</kbd><kbd>←</kbd></td><td><kbd>Ctrl</kbd><kbd>←</kbd></td></tr>
+            <tr><td data-i18n="sc_next">Next song / End performance</td><td><kbd>⌘</kbd><kbd>→</kbd></td><td><kbd>Ctrl</kbd><kbd>→</kbd></td></tr>
+            <tr><td data-i18n="sc_stop">Stop</td><td><kbd>⌘</kbd><kbd>.</kbd></td><td><kbd>Ctrl</kbd><kbd>.</kbd></td></tr>
+            <tr><td data-i18n="sc_pitch">Pitch up / down</td><td><kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd></td><td><kbd>Ctrl</kbd><kbd>↑</kbd><kbd>↓</kbd></td></tr>
+            <tr><td data-i18n="sc_pitch_reset">Reset pitch</td><td><kbd>⌘</kbd><kbd>0</kbd></td><td><kbd>Ctrl</kbd><kbd>0</kbd></td></tr>
+            <tr><td data-i18n="sc_volume">Volume up / down</td><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>↑</kbd><kbd>↓</kbd></td><td><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>↑</kbd><kbd>↓</kbd></td></tr>
+            <tr><td data-i18n="sc_pads">Fire pads 1–6</td><td><kbd>1</kbd>…<kbd>6</kbd></td><td><kbd>1</kbd>…<kbd>6</kbd></td></tr>
+            <tr><td data-i18n="sc_search">Search</td><td><kbd>/</kbd></td><td><kbd>/</kbd></td></tr>
+          </tbody></table></div>
+      </section>
+
+      <section class="s-sec" data-sec="about">
+        <div class="s-card about-hero">
+          <div class="brand"><img class="brand-logo" src="../assets/logo.svg" alt="PlayKaraoke"/><span class="logo-tag">PLAYER</span></div>
+          <p class="about-lead" data-i18n="about_lead">PlayKaraoke Player is a free, browser-based karaoke player built for real karaoke nights — CDG and MP4 files, key change, a second screen for the singers and a singer rotation for hosts.</p>
+        </div>
+        <div class="s-card">
+          <div class="s-t" data-i18n="about_story_title">The story</div>
+          <p class="about-p" data-i18n="about_story">PlayKaraoke was created by <b>Jorge Domecildes</b>, a Brazilian karaoke enthusiast. The brand started in 2015 with the karaoke tracks he produced himself, and grew into PlayKaraoke Player: a tool made by someone who runs karaoke nights, for everyone who loves them.</p>
+          <p class="about-p" data-i18n="about_support">PlayKaraoke Player is free to use. If it makes your nights better, you can support the project.</p>
+        </div>
+        <div class="about-links">
+          <a class="about-btn primary" href="https://www.paypal.com/donate/?business=jorge.domecildes%40gmail.com&amp;no_recurring=0&amp;item_name=Support+PlayKaraoke" target="_blank" rel="noopener"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M7 3.5v2M10 3v2.5M13 3.5v2"/></svg><span data-i18n="about_coffee">Buy me a coffee</span></a>
+          <a class="about-btn" href="https://www.youtube.com/@playkaraoke" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/></svg><span data-i18n="about_youtube">YouTube channel</span></a>
+          <a class="about-btn" href="https://github.com/playkaraoke/PlayKaraokeWebPlayer" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>GitHub</a>
+          <a class="about-btn" href="https://br.linkedin.com/in/jorgedomecildes" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.23 0H1.77C.8 0 0 .77 0 1.73v20.54C0 23.23.8 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.2 0 22.23 0Z"/></svg>LinkedIn</a>
+        </div>
+        <div class="about-foot">PlayKaraoke Player v3.1.1 · © 2015–2026 Jorge Domecildes · <span data-i18n="about_license">Free for personal, noncommercial use</span> · contatoplaykaraoke@gmail.com</div>
+      </section>
+
+    </div>
+  </div>
+</div></div>
+
+<div id="drop-overlay" class="hidden"><div data-i18n="drop_overlay_text">Drop files to add them</div></div>
+
+<!-- Estados "de verdade" (a lógica lê estes checkboxes; os switches visuais espelham) -->
+<input type="checkbox" id="applause-toggle" class="hidden"/>
+<input type="checkbox" id="autoplay-toggle" class="hidden"/>
+<input type="checkbox" id="ambient-toggle" class="hidden"/>
+<input type="checkbox" id="custom-colors-toggle" class="hidden"/>
+<input type="checkbox" id="light-mode-toggle" class="hidden"/>
+<input type="checkbox" id="shortcuts-toggle" class="hidden"/>
+<input type="checkbox" id="cd-show-upcoming-toggle" class="hidden" checked/>
+<input type="checkbox" id="cd-show-titles-toggle" class="hidden" checked/>
+<input type="checkbox" id="cd-show-counter-toggle" class="hidden" checked/>
+<button id="open-second-btn" class="hidden" type="button"></button>
+<div id="second-screen-status" class="hidden"></div>
+
+<input type="file" id="file-input" accept=".zip,.mp4" multiple class="hidden"/>
+<audio id="applause-audio" src="../assets/aplausos.mp3" preload="auto"></audio>
+<audio id="ambient-audio" preload="auto"></audio>
+<audio id="audio-el" preload="auto"></audio>
+
+<script src="js/cdg-player.js?v=3.1.1"></script>
+<script src="js/file-loader.js?v=3.1.1"></script>
+<script src="js/library.js?v=3.1.1"></script>
+<script src="js/i18n.js?v=3.1.1"></script>
+<script src="js/singers.js?v=3.1.1"></script>
+<script src="js/online-search.js?v=3.1.1"></script>
+<script src="js/ambient-playlist.js?v=3.1.1"></script>
+<script src="js/youtube-player.js?v=3.1.1"></script>
+<script src="js/pads.js?v=3.1.1"></script>
+<script type="module" src="js/app.js?v=3.1.1"></script>
+
+<script>
+  // Preenchimento colorido dos sliders (barra de progresso, volumes): o app
+  // muda .value pela propriedade, que nenhum evento detecta — polling leve.
+  (function () {
+    const ranges = document.querySelectorAll('input[type=range]');
+    function paint() {
+      ranges.forEach(r => {
+        const max = Number(r.max) || 100, min = Number(r.min) || 0;
+        r.style.setProperty('--fill', (max > min ? ((r.value - min) / (max - min)) * 100 : 0) + '%');
+      });
+    }
+    ranges.forEach(r => r.addEventListener('input', paint));
+    paint();
+    setInterval(paint, 200);
+  })();
+</script>
+</body>
+</html>

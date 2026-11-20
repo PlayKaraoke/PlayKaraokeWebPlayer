@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PlayKaraoke Player — Second Screen</title>
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;background:#000;overflow:hidden;}
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Inter',sans-serif;
+  }
+  #youtube-host{
+    width:min(100vw, calc(100vh * 16 / 9));
+    aspect-ratio:16/9;
+  }
+  #youtube-host iframe{ width:100%; height:100%; border:0; pointer-events:none; }
+  #youtube-wrap{ cursor:none; }
+  #canvas-wrap, #video-wrap, #youtube-wrap{
+    width:100vw;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  #cdg-canvas{
+    max-width:min(100vw, calc(100vh * 300 / 216));
+    max-height:min(100vh, calc(100vw * 216 / 300));
+    width:100%;
+    aspect-ratio:300/216;
+    background:#000;
+  }
+  #video-el{
+    max-width:100vw;
+    max-height:100vh;
+    width:100%;
+    aspect-ratio:16/9;
+    background:#000;
+  }
+  .hidden{display:none !important;}
+
+  #idle-overlay{
+    position:fixed;
+    inset:0;
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #idle-logo{
+    width:22vw;
+    max-width:280px;
+    opacity:0.5;
+  }
+  #idle-custom-image{
+    position:fixed;
+    inset:0;
+    background-size:cover;
+    background-position:center;
+  }
+
+  #fs-btn{
+    position:fixed;
+    bottom:16px;
+    right:16px;
+    width:42px;height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(20,20,20,0.6);
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:8px;
+    color:#e5e2e1;
+    cursor:pointer;
+    opacity:0;
+    transition:opacity 0.15s ease;
+    z-index:10;
+  }
+  body:hover #fs-btn{ opacity:1; }
+  #fs-btn:hover{ background:rgba(40,40,40,0.8); }
+  #fs-btn svg{ width:20px;height:20px; }
+
+  /* Tela de espera: mesmo visual da prévia da tela principal (3.0) */
+  #countdown-overlay{
+    position:fixed;
+    inset:0;
+    background:radial-gradient(70vw 40vh at 50% 0%, rgba(139,92,246,0.30), transparent 70%), #0b0a10;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3.2vh;
+    z-index:5;
+  }
+  /* Tamanhos em vh: crescem junto com a TV (antes tinham teto em px e
+     ficavam pequenos numa tela grande). */
+  #countdown-timer-parts{ display:flex; align-items:center; justify-content:center; gap:2.5vh; flex-wrap:wrap; }
+  #countdown-overlay .cd-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:2.8vh;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:#b9b3cf;
+  }
+  #countdown-overlay .cd-number{
+    font-family:'Montserrat',sans-serif;
+    font-weight:700;
+    font-size:22vh;
+    line-height:0.9;
+    background:linear-gradient(135deg, #8b5cf6, #ec4899);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  #countdown-overlay .cd-next{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:5vh;
+    color:#eeecf2;
+    text-align:center;
+    padding:0 20px;
+  }
+  #cd-singer-highlight{
+    display:flex; flex-direction:column; align-items:center; gap:1.6vh;
+    width:100%; max-width:82vw;
+  }
+  .cd-a-seguir-label, .cd-proximas-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:2.8vh;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:#b9b3cf;
+  }
+  #cd-singer-card{
+    background:#ffffff;
+    box-shadow:0 1.5vh 6vh rgba(139,92,246,0.45);
+    border-radius:2.6vh;
+    padding:3.4vh 5vh;
+    display:flex; flex-direction:column; align-items:center; gap:1vh;
+    width:100%;
+  }
+  #cd-singer-name-display{
+    font-family:'Montserrat',sans-serif;
+    font-weight:700;
+    font-size:10vh;
+    line-height:1.05;
+    color:#15131c;
+    text-align:center;
+    max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  #cd-singer-song-display{
+    font-size:4.4vh;
+    font-weight:600;
+    color:#4b4760;
+    text-align:center;
+    max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:2vh; width:100%; max-width:82vw; }
+  #cd-upcoming-list{ display:flex; flex-direction:column; gap:2vh; width:100%; }
+  .cd-upcoming-row{
+    display:flex; align-items:center; gap:2vh; min-width:0;
+    font-size:3.2vh; font-weight:500;
+    color:#cfcadf;
+  }
+  .cd-upcoming-row .pos-badge{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:3.4vh;
+    color:#111111; background:#ffffff; border-radius:50%;
+    width:6.8vh;height:6.8vh; display:flex;align-items:center;justify-content:center; flex-shrink:0;
+  }
+  .cd-upcoming-row .name-badge{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:5.6vh;
+    color:#111111; background:#ffffff; border-radius:999px; padding:0.6vh 3.4vh; flex-shrink:0;
+    max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .cd-upcoming-row .song-info{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap" class="hidden">
+  <canvas id="cdg-canvas" width="900" height="648"></canvas>
+</div>
+
+<div id="video-wrap" class="hidden">
+  <video id="video-el" muted playsinline></video>
+</div>
+
+<div id="youtube-wrap" class="hidden">
+  <div id="youtube-host"></div>
+</div>
+
+<div id="idle-overlay">
+  <img id="idle-logo" src="../assets/logo.svg" alt=""/>
+  <div id="idle-custom-image" class="hidden"></div>
+</div>
+
+<div id="countdown-overlay" class="hidden">
+  <div id="countdown-timer-parts">
+    <span class="cd-label">The song starts in:</span>
+    <span class="cd-number" id="cd-number">10</span>
+    <span class="cd-next" id="cd-next-title"></span>
+  </div>
+
+  <div id="cd-singer-highlight" class="hidden">
+    <span class="cd-a-seguir-label">Up next:</span>
+    <div id="cd-singer-card">
+      <div id="cd-singer-name-display">—</div>
+      <div id="cd-singer-song-display">—</div>
+    </div>
+  </div>
+  <div id="cd-upcoming-section">
+    <span class="cd-proximas-label">Upcoming singers:</span>
+    <div id="cd-upcoming-list"></div>
+  </div>
+</div>
+
+<button id="fs-btn" title="Fullscreen">
+  <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+</button>
+
+<script src="js/cdg-player.js?v=3.1.1"></script>
+<script src="js/youtube-player.js?v=3.1.1"></script>
+<script src="js/second-screen.js?v=3.1.1"></script>
+</body>
+</html>
