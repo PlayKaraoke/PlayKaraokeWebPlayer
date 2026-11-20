@@ -152,18 +152,20 @@
   .res-msg.warn{ color:var(--error); }
   .spacer{ flex:1; }
   .pills{ display:flex; gap:6px; margin-left:auto; }
-  .pill{ display:flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap;
+  .pill{ position:relative; display:flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border-radius:50%; cursor:pointer;
     background:var(--glass); border:1px solid var(--line); color:var(--text-2); }
-  .pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-3); }
+  .pill svg{ width:18px; height:18px; }
+  /* Dica com o nome (lê o aria-label traduzido): só CSS, aparece após 300 ms. */
+  .pill::after{ content:attr(aria-label); position:absolute; top:calc(100% + 8px); left:50%; transform:translateX(-50%); padding:5px 9px; border-radius:7px; background:var(--pop-bg); color:var(--text); border:1px solid var(--line-2); font-size:11.5px; font-weight:500; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .12s; z-index:40; }
+  .pill:hover::after, .pill:focus-visible::after{ opacity:1; transition-delay:.3s; }
   .pill:hover{ color:var(--text); }
   .pill.on{ background:var(--grad); border-color:transparent; color:#fff; font-weight:600; box-shadow:0 4px 14px rgba(139,92,246,0.35); }
-  .pill.on .dot{ background:#fff; }
   .gear{ width:36px; height:36px; border-radius:10px; border:0; cursor:pointer; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(139,92,246,0.35); flex-shrink:0; }
   .gear svg{ width:18px; height:18px; }
   .mode-btn{ height:36px; padding:0 14px; border-radius:999px; cursor:pointer; font-size:12.5px; font-weight:600; background:none; border:1.5px solid var(--line-2); display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; }
   .mode-btn:hover{ border-color:var(--violet-soft); }
   .mode-btn svg{ width:13px; height:13px; }
-  @media (max-width: 1300px){ .pill{ padding:0 10px; font-size:11.5px; } .search{ min-width:300px; } }
+  @media (max-width: 1300px){ .search{ min-width:300px; } }
 
   /* ================= Corpo ================= */
   .body{ display:grid; grid-template-columns:minmax(340px, 40%) 1fr; gap:16px; padding:16px; min-height:0; }
@@ -533,18 +535,18 @@
       <div class="results hidden" id="search-results"></div>
     </div>
     <div class="pills">
-      <button class="pill" id="quick-second-screen-btn" type="button" data-i18n-title="pill_second_screen_title" title="Open/close the second screen"><span class="dot"></span><span data-i18n="pill_second_screen">Second Screen</span></button>
-      <button class="pill" id="quick-autoplay-btn" type="button" data-i18n-title="pill_autoplay_title" title="Autoplay"><span class="dot"></span><span data-i18n="pill_autoplay">Autoplay</span></button>
-      <button class="pill" id="quick-applause-btn" type="button" data-i18n-title="pill_applause_title" title="Applause"><span class="dot"></span><span data-i18n="pill_applause">Applause</span></button>
-      <button class="pill" id="quick-ambient-btn" type="button" data-i18n-title="pill_ambient_title" title="Ambient"><span class="dot"></span><span data-i18n="pill_ambient">Ambient</span></button>
-      <button class="pill" id="quick-ticker-btn" type="button" data-i18n-title="pill_ticker_title" title="Show/hide the notice bar"><span class="dot"></span><span data-i18n="pill_ticker">Notices</span></button>
+      <button class="pill" id="quick-second-screen-btn" type="button" data-i18n-aria="pill_second_screen" aria-label="Second Screen"><svg fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H3ZM8 20h8M12 16v4"/></svg></button>
+      <button class="pill" id="quick-ticker-btn" type="button" data-i18n-aria="pill_ticker" aria-label="Notices"><svg fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h3l9-5v14l-9-5H3ZM6 14l1.5 5H10l-1.2-4.6M18.5 9a4 4 0 0 1 0 6"/></svg></button>
+      <button class="pill" id="quick-autoplay-btn" type="button" data-i18n-aria="pill_autoplay" aria-label="Autoplay"><svg fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9l5 3-5 3ZM21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg></button>
+      <button class="pill" id="quick-ambient-btn" type="button" data-i18n-aria="pill_ambient" aria-label="Ambient"><svg fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
+      <button class="pill" id="quick-applause-btn" type="button" data-i18n-aria="pill_applause" aria-label="Applause"><svg fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21l-4-4a1.1 1.1 0 0 1 1.5-1.5L6 17 3 12a1 1 0 0 1 1.7-1l3.1 4.2-3-6a1 1 0 0 1 1.8-.9l4.1 6.4-.1-2.2a1 1 0 0 1 2-.2l.4 4.2a4.7 4.7 0 0 1-6 4.5ZM8 7l3 4M12 20a5 5 0 0 0 3-5M18 2a2 2 0 0 1 2 2v4a2 2 0 0 1-4 0V4a2 2 0 0 1 2-2ZM14 7v1a4 4 0 0 0 8 0V7M18 12v3M3 4l1 1M8 2v2"/></svg></button>
     </div>
-    <button class="gear" id="settings-btn" type="button" data-i18n-title="settings_title" title="Settings"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 3.9c.1-.5.6-.9 1.1-.9h2.6c.6 0 1 .4 1.1.9l.2 1.3c.1.4.3.7.6.9l.2.1c.3.2.7.3 1.1.1l1.2-.5c.5-.2 1.1 0 1.4.5l1.3 2.2c.3.5.2 1.1-.3 1.4l-1 .8c-.3.2-.4.6-.4 1v.3c0 .4.1.7.4 1l1 .8c.4.4.5 1 .3 1.4l-1.3 2.2c-.3.5-.8.7-1.4.5l-1.2-.5c-.4-.1-.8-.1-1.1.1l-.2.1c-.3.2-.6.5-.6.9l-.2 1.3c-.1.5-.6.9-1.1.9h-2.6c-.6 0-1-.4-1.1-.9l-.2-1.3c-.1-.4-.3-.7-.6-.9l-.2-.1c-.3-.2-.7-.3-1.1-.1l-1.2.5c-.5.2-1.1 0-1.4-.5l-1.3-2.2c-.3-.5-.2-1.1.3-1.4l1-.8c.3-.2.4-.6.4-1v-.3c0-.4-.1-.7-.4-1l-1-.8c-.4-.4-.5-1-.3-1.4l1.3-2.2c.3-.5.8-.7 1.4-.5l1.2.5c.4.1.8.1 1.1-.1l.2-.1c.3-.2.6-.5.6-.9l.2-1.3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
     <button class="mode-btn" id="show-mode-btn" type="button">
       <svg id="show-mode-icon-start" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.4-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5Z"/></svg>
       <svg id="show-mode-icon-end" class="hidden" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       <span id="show-mode-btn-label" data-i18n="start_show_mode">Start Show Mode</span>
     </button>
+    <button class="gear" id="settings-btn" type="button" data-i18n-title="settings_title" title="Settings"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 3.9c.1-.5.6-.9 1.1-.9h2.6c.6 0 1 .4 1.1.9l.2 1.3c.1.4.3.7.6.9l.2.1c.3.2.7.3 1.1.1l1.2-.5c.5-.2 1.1 0 1.4.5l1.3 2.2c.3.5.2 1.1-.3 1.4l-1 .8c-.3.2-.4.6-.4 1v.3c0 .4.1.7.4 1l1 .8c.4.4.5 1 .3 1.4l-1.3 2.2c-.3.5-.8.7-1.4.5l-1.2-.5c-.4-.1-.8-.1-1.1.1l-.2.1c-.3.2-.6.5-.6.9l-.2 1.3c-.1.5-.6.9-1.1.9h-2.6c-.6 0-1-.4-1.1-.9l-.2-1.3c-.1-.4-.3-.7-.6-.9l-.2-.1c-.3-.2-.7-.3-1.1-.1l-1.2.5c-.5.2-1.1 0-1.4-.5l-1.3-2.2c-.3-.5-.2-1.1.3-1.4l1-.8c.3-.2.4-.6.4-1v-.3c0-.4-.1-.7-.4-1l-1-.8c-.4-.4-.5-1-.3-1.4l1.3-2.2c.3-.5.8-.7 1.4-.5l1.2.5c.4.1.8.1 1.1-.1l.2-.1c.3-.2.6-.5.6-.9l.2-1.3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
   </header>
 
   <!-- ================= CORPO ================= -->

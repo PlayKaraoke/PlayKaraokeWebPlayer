@@ -123,3 +123,18 @@ test('segunda tela recebe a barra ao mudar, sem repetir o mesmo estado, e de nov
   win.__fromSecondScreen({ type: 'ready' }); await flush();
   assert.equal(tickers().length, n + 1, 'não reenviou no ready');
 });
+
+// ---- Pílulas como ícones (Task 5) ----
+test('pílulas são só ícone, com nome acessível traduzido, na ordem combinada', async () => {
+  const { $ } = await createApp({ localStorage: PT });
+  for (const id of ['quick-second-screen-btn', 'quick-autoplay-btn', 'quick-applause-btn', 'quick-ambient-btn', 'quick-ticker-btn']) {
+    const b = $(id);
+    assert.ok(b.querySelector('svg'), id + ' sem ícone');
+    assert.equal(b.textContent.trim(), '', id + ' ainda tem texto visível');
+    assert.ok(b.getAttribute('aria-label'), id + ' sem aria-label');
+    assert.equal(b.getAttribute('title'), null, id + ' com title (dica dupla)');
+  }
+  const order = Array.from($('quick-ticker-btn').closest('header').querySelectorAll('.pill, #show-mode-btn, #settings-btn'), e => e.id);
+  assert.deepEqual(order, ['quick-second-screen-btn', 'quick-ticker-btn', 'quick-autoplay-btn', 'quick-ambient-btn', 'quick-applause-btn', 'show-mode-btn', 'settings-btn']);
+  assert.equal($('quick-ticker-btn').getAttribute('aria-label'), 'Avisos');
+});

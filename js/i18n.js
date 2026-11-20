@@ -3,7 +3,7 @@
  *
  * Como funciona:
  *  - Textos ESTÁTICOS do HTML usam o atributo data-i18n="chave" (texto),
- *    data-i18n-title="chave" (tooltip) ou data-i18n-placeholder="chave".
+ *    data-i18n-title="chave" (tooltip), data-i18n-aria="chave" (aria-label) ou data-i18n-placeholder="chave".
  *    Ao trocar de idioma, applyTranslations() varre o DOM e substitui.
  *  - Textos DINÂMICOS gerados no JS usam window.i18n.t('chave', {vars}).
  *  - Inglês é o idioma padrão (sem detecção de navegador — decisão
@@ -266,7 +266,6 @@ const TRANSLATIONS = {
     settings_sec_pads: "Pads",
     settings_sec_ticker: "Notices",
     pill_ticker: "Notices",
-    pill_ticker_title: "Show/hide the notice bar",
     ticker_bar_title: "Notice bar",
     ticker_bar_desc: "Scrolling text at the bottom of the second screen, for the audience.",
     ticker_upcoming: "Next singers",
@@ -600,7 +599,6 @@ const TRANSLATIONS = {
     settings_sec_pads: "Pads",
     settings_sec_ticker: "Avisos",
     pill_ticker: "Avisos",
-    pill_ticker_title: "Mostrar/esconder a barra de avisos",
     ticker_bar_title: "Barra de avisos",
     ticker_bar_desc: "Texto passando no rodapé da segunda tela, para o público.",
     ticker_upcoming: "Próximos a cantar",
@@ -718,6 +716,9 @@ function applyTranslations(root) {
   if (!root) document.documentElement.lang = currentLang === 'pt' ? 'pt-BR' : 'en';
   scope.querySelectorAll('[data-i18n]').forEach(el => {
     el.innerHTML = t(el.getAttribute('data-i18n'));
+  });
+  scope.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
   });
   scope.querySelectorAll('[data-i18n-title]').forEach(el => {
     el.title = t(el.getAttribute('data-i18n-title'));

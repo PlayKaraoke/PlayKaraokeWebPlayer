@@ -1476,9 +1476,9 @@ function updateAutoplayIndicator() {
   quickAutoplayBtn.classList.toggle('on', on);
   if (on) {
     const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
-    quickAutoplayBtn.title = window.i18n.t('pill_autoplay_on_title', { delay });
+    quickAutoplayBtn.setAttribute('aria-label', window.i18n.t('pill_autoplay_on_title', { delay }));
   } else {
-    quickAutoplayBtn.title = window.i18n.t('pill_autoplay_title');
+    quickAutoplayBtn.setAttribute('aria-label', window.i18n.t('pill_autoplay'));
   }
 }
 autoplayToggle.addEventListener('change', updateAutoplayIndicator);
