@@ -2717,6 +2717,7 @@ const singerManager = window.createSingerManager({
     refreshManageSingersIfOpen(); // a música pode acabar com o Gerenciar aberto
     if (singerModeEnabled) updateNextBtnState();
     if (singerModeEnabled && playlistRestoreDone) updateIdleOverlay(); // cartão "A seguir" acompanha a rodada
+    refreshTicker(); // próximos a cantar na barra de avisos
   },
 });
 
@@ -2749,6 +2750,7 @@ function syncLoadedShowTurn() {
 
 function applySingerModeVisibility() {
   playlistEl.classList.toggle('hidden', singerModeEnabled);
+  refreshTicker();
   singerRoundView.classList.toggle('hidden', !singerModeEnabled);
   clearQueueBtn.classList.toggle('hidden', singerModeEnabled);
   addSingerBtn.classList.toggle('hidden', !singerModeEnabled);
@@ -3534,6 +3536,9 @@ function logSongToShowHistory(singerName, song, semitone, duracao) {
 // então chamar refreshTicker() a cada mudança da fila não reinicia a animação.
 
 const TICKER_SETTINGS_KEY = 'playkaraoke-ticker-settings-v1';
+// `var` (não const/let): refreshTicker() é chamada pelo onChange da fila e pelo
+// Modo Show, que podem rodar antes deste bloco na abertura; até lá, não faz nada.
+var tickerReady = false;
 const tickerToggle = el('ticker-toggle');
 const tickerUpcomingToggle = el('ticker-upcoming-toggle');
 const tickerUpcomingCount = el('ticker-upcoming-count');
@@ -3555,7 +3560,9 @@ function getTickerState() {
     on: tickerToggle.checked,
     segments: window.buildTickerSegments({
       upcomingOn: tickerUpcomingToggle.checked,
-      upcoming: [],
+      upcoming: singerModeEnabled
+        ? singerManager.getUpcomingSingers(Number(tickerUpcomingCount.value)).map(s => ({ position: getSingerPosition(s.id), name: s.name }))
+        : [],
       upcomingColor: tickerUpcomingColor.value,
       labelOne: window.i18n.t('ticker_label_one'),
       labelMany: window.i18n.t('ticker_label_many'),
@@ -3569,6 +3576,7 @@ function getTickerState() {
 }
 
 function refreshTicker() {
+  if (!tickerReady) return;
   quickTickerBtn.classList.toggle('on', tickerToggle.checked);
   stageTicker.update(getTickerState());
 }
@@ -3609,6 +3617,7 @@ function restoreTickerSettings() {
 }
 
 restoreTickerSettings();
+tickerReady = true;
 syncToggleIndicator(el('ticker-toggle-indicator'), tickerToggle);
 syncToggleIndicator(el('ticker-upcoming-indicator'), tickerUpcomingToggle);
 syncToggleIndicator(el('ticker-text1-indicator'), tickerText1Toggle);
@@ -4610,6 +4619,7 @@ window.i18n.applyTranslations();
 updateLanguageSeg();
 applyTheme(currentTheme());
 window.i18n.onLanguageChange(() => {
+  refreshTicker();
   // Alguns textos são gerados dinamicamente (não têm data-i18n no HTML
   // estático) — precisam ser re-renderizados manualmente quando o
   // idioma muda, senão ficam "presos" no idioma anterior até a próxima
