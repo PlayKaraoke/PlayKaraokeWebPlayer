@@ -1,6 +1,6 @@
 // ?v= igual ao do index.html: muda a cada versão pra o navegador não usar
 // um arquivo velho do cache (o GitHub Pages manda guardar por 10 min).
-import { AudioEngine } from './audio-engine.js?v=3.1.1';
+import { AudioEngine } from './audio-engine.js?v=3.2.0';
 
 const el = (id) => document.getElementById(id);
 

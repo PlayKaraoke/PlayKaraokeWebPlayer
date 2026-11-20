@@ -18,7 +18,7 @@
 
 ## 1. The screen at a glance
 
-- **Top bar:** search (Devices / YouTube), quick toggles (Second Screen, Autoplay, Applause, Ambient), the settings gear, and **Start Show Mode** / **End Show**.
+- **Top bar:** search (Devices / YouTube), icon toggles (Second Screen, Notices, Autoplay, Ambient, Applause; hover to see each name), **Start Show Mode** / **End Show**, and the settings gear.
 - **Left:** the drop strip ("Drag karaoke files here") and the list: the **Queue**, or the **Singer rotation** in Show Mode. **Clear queue** sits at the bottom. In Show Mode the bottom has **+ Add singer** and **Manage singers** instead.
 - **Right:** the preview (lyrics or video, sized to fill the free space), the song details, the progress bar, the controls, and the six **pads**.
 
@@ -114,6 +114,16 @@ A controls-free window for a TV, projector or singer-facing monitor.
 
 Click the toggle again to close it.
 
+### Notice bar
+
+A thin scrolling bar at the bottom of the **second screen** only (the operator screen doesn't draw it, to save processing).
+
+- Turn it on or off with the **Notices** icon in the top bar.
+- Set it up in **Settings › Notices**: **Next singers** (how many: 1 to 5; Show Mode only), **Text 1** and **Text 2**. Each has its own on/off and color.
+- Also: bar color, bar size (Small / Medium / Large) and speed.
+- Write `*word*` for **bold**, e.g. `Fries for *$3.99* tonight`. A lone `*` stays as is.
+- Texts apply when you press Enter or leave the field.
+
 ## 7. Show Mode (singer rotation)
 
 The queue becomes a rotation of **singers**, each with up to **5 songs**. When a song ends, the turn moves to the next singer, and after the last singer it goes back to the first.
@@ -154,6 +164,7 @@ Click the gear in the top bar. The sections are on the left.
 | **General** | Language (English / Português), Theme (**Dark**, recommended for shows, or **Light**), **Performance mode** for older computers (CDG lyrics use much less processing; the look changes very slightly) |
 | **Playback** | Autoplay and the wait between songs; automatic applause; ambient music: on/off, volume, and the source: **App songs** or **My songs** (a folder with your own MP3s, played in random order with no repeats) |
 | **Display** | Background image shown when nothing is playing (ideal 1920×1080, lasts for the current session); custom CDG colors (experimental) |
+| **Notices** | The notice bar on the second screen ([section 6](#6-the-second-screen)) |
 | **Show Mode** | What the waiting screen shows between singers (upcoming singers, song titles, countdown; all on by default), and **Manage singers** |
 | **Library** | Connected folders: **+ Connect folder**, update (↻), remove (✕), **Reconnect** when the browser asks |
 | **Pads** | Names and sounds of the six pads ([section 5](#5-pads)) |
