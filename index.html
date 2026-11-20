@@ -467,6 +467,10 @@
   .s-d{ font-size:12px; color:var(--text-2); margin-top:3px; line-height:1.45; }
   .num{ width:62px; height:32px; border-radius:8px; border:1px solid var(--line-2); background:var(--sink); color:var(--text); text-align:center; font-family:'JetBrains Mono',monospace; font-size:13px; }
   .s-range{ display:flex; align-items:center; gap:10px; min-width:240px; }
+  .s-inline{ display:flex; align-items:center; gap:8px; }
+  .s-input{ flex:1; min-width:0; height:32px; border-radius:8px; border:1px solid var(--line-2); background:var(--sink); color:var(--text); padding:0 10px; font:13px 'Inter',sans-serif; }
+  .s-select{ height:32px; border-radius:8px; border:1px solid var(--line-2); background:var(--sink); color:var(--text); padding:0 8px; font:13px 'Inter',sans-serif; cursor:pointer; }
+  .s-color{ width:32px; height:32px; padding:2px; border:1px solid var(--line-2); border-radius:8px; background:var(--sink); cursor:pointer; flex-shrink:0; }
   .s-range span{ font-family:'JetBrains Mono',monospace; font-size:12px; width:36px; text-align:right; }
   .swatches{ display:flex; gap:14px; }
   .swatch{ display:flex; flex-direction:column; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-2); letter-spacing:.06em; cursor:pointer; }
@@ -533,6 +537,7 @@
       <button class="pill" id="quick-autoplay-btn" type="button" data-i18n-title="pill_autoplay_title" title="Autoplay"><span class="dot"></span><span data-i18n="pill_autoplay">Autoplay</span></button>
       <button class="pill" id="quick-applause-btn" type="button" data-i18n-title="pill_applause_title" title="Applause"><span class="dot"></span><span data-i18n="pill_applause">Applause</span></button>
       <button class="pill" id="quick-ambient-btn" type="button" data-i18n-title="pill_ambient_title" title="Ambient"><span class="dot"></span><span data-i18n="pill_ambient">Ambient</span></button>
+      <button class="pill" id="quick-ticker-btn" type="button" data-i18n-title="pill_ticker_title" title="Show/hide the notice bar"><span class="dot"></span><span data-i18n="pill_ticker">Notices</span></button>
     </div>
     <button class="gear" id="settings-btn" type="button" data-i18n-title="settings_title" title="Settings"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 3.9c.1-.5.6-.9 1.1-.9h2.6c.6 0 1 .4 1.1.9l.2 1.3c.1.4.3.7.6.9l.2.1c.3.2.7.3 1.1.1l1.2-.5c.5-.2 1.1 0 1.4.5l1.3 2.2c.3.5.2 1.1-.3 1.4l-1 .8c-.3.2-.4.6-.4 1v.3c0 .4.1.7.4 1l1 .8c.4.4.5 1 .3 1.4l-1.3 2.2c-.3.5-.8.7-1.4.5l-1.2-.5c-.4-.1-.8-.1-1.1.1l-.2.1c-.3.2-.6.5-.6.9l-.2 1.3c-.1.5-.6.9-1.1.9h-2.6c-.6 0-1-.4-1.1-.9l-.2-1.3c-.1-.4-.3-.7-.6-.9l-.2-.1c-.3-.2-.7-.3-1.1-.1l-1.2.5c-.5.2-1.1 0-1.4-.5l-1.3-2.2c-.3-.5-.2-1.1.3-1.4l1-.8c.3-.2.4-.6.4-1v-.3c0-.4-.1-.7-.4-1l-1-.8c-.4-.4-.5-1-.3-1.4l1.3-2.2c.3-.5.8-.7 1.4-.5l1.2.5c.4.1.8.1 1.1-.1l.2-.1c.3-.2.6-.5.6-.9l.2-1.3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
     <button class="mode-btn" id="show-mode-btn" type="button">
@@ -838,6 +843,7 @@
     <button type="button" data-sec="show"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.1a9.4 9.4 0 0 0 2.6.4 9.3 9.3 0 0 0 4.1-1 4.1 4.1 0 0 0-7.5-2.5M15 19.1v-.1c0-1.1-.3-2.2-.8-3.1M15 19.1v.1A12.3 12.3 0 0 1 8.6 21c-2.3 0-4.5-.6-6.4-1.8v-.1a6.4 6.4 0 0 1 12-3.1M12 6.4a3.4 3.4 0 1 1-6.8 0 3.4 3.4 0 0 1 6.8 0Zm8.3 2.2a2.6 2.6 0 1 1-5.3 0 2.6 2.6 0 0 1 5.3 0Z"/></svg><span data-i18n="settings_sec_show">Show Mode</span></button>
     <button type="button" data-sec="library"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg><span data-i18n="settings_sec_library">Library</span></button>
     <button type="button" data-sec="pads"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg><span data-i18n="settings_sec_pads">Pads</span></button>
+    <button type="button" data-sec="ticker"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46"/></svg><span data-i18n="settings_sec_ticker">Notices</span></button>
     <button type="button" data-sec="shortcuts"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.2"/><path stroke-linecap="round" d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9"/></svg><span data-i18n="settings_sec_shortcuts">Shortcuts</span></button>
     <button type="button" data-sec="about"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg><span data-i18n="settings_sec_about">About</span></button>
     <a id="help-link" href="help.html" target="_blank" rel="noopener"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg><span data-i18n="help_link">Help &amp; manual</span><span style="margin-left:auto;opacity:.6">↗</span></a>
@@ -917,6 +923,28 @@
         <input type="file" id="pad-file-input" accept="audio/*,.mp3,.wav,.m4a,.ogg" class="hidden"/>
       </section>
 
+      <section class="s-sec" data-sec="ticker">
+        <div class="s-card">
+          <div class="s-row"><div><div class="s-t" data-i18n="ticker_bar_title">Notice bar</div><div class="s-d" data-i18n="ticker_bar_desc">Scrolling text at the bottom of the karaoke screen, for the audience.</div></div><button class="sw" id="ticker-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+        </div>
+        <div class="s-card">
+          <div class="s-row"><div class="s-t" data-i18n="ticker_upcoming">Next singers</div><button class="sw" id="ticker-upcoming-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><div class="s-d" style="margin:0" data-i18n="ticker_upcoming_count">How many</div><div class="s-inline"><select class="s-select" id="ticker-upcoming-count"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select><input class="s-color" type="color" id="ticker-upcoming-color" value="#ffffff" data-i18n-title="ticker_item_color" title="Color"/></div></div>
+        </div>
+        <div class="s-card">
+          <div class="s-row"><div class="s-t" data-i18n="ticker_text1">Text 1</div><button class="sw" id="ticker-text1-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><input class="s-input" type="text" id="ticker-text1-input" maxlength="200" spellcheck="false"/><input class="s-color" type="color" id="ticker-text1-color" value="#ffd400" data-i18n-title="ticker_item_color" title="Color"/></div>
+          <div class="s-row"><div class="s-t" data-i18n="ticker_text2">Text 2</div><button class="sw" id="ticker-text2-indicator" type="button"><span class="toggle-state-text"></span></button></div>
+          <div class="s-row"><input class="s-input" type="text" id="ticker-text2-input" maxlength="200" spellcheck="false"/><input class="s-color" type="color" id="ticker-text2-color" value="#ffffff" data-i18n-title="ticker_item_color" title="Color"/></div>
+          <div class="s-d" style="margin:10px 0 0" data-i18n="ticker_bold_hint">Use *word* for bold.</div>
+        </div>
+        <div class="s-card">
+          <div class="s-row"><div class="s-t" data-i18n="ticker_bg_color">Bar color</div><input class="s-color" type="color" id="ticker-bg-input" value="#000000"/></div>
+          <div class="s-row"><div class="s-t" data-i18n="ticker_size">Bar size</div><select class="s-select" id="ticker-size-select"><option value="small" data-i18n="ticker_size_small">Small</option><option value="medium" selected data-i18n="ticker_size_medium">Medium</option><option value="large" data-i18n="ticker_size_large">Large</option></select></div>
+          <div class="s-row"><div class="s-t" data-i18n="ticker_speed">Speed</div><div class="s-range"><input type="range" id="ticker-speed-input" min="1" max="10" value="5"/><span id="ticker-speed-val">5</span></div></div>
+        </div>
+      </section>
+
       <section class="s-sec" data-sec="shortcuts">
         <div class="s-card"><div class="s-row"><div><div class="s-t" data-i18n="shortcuts_enable">Enable keyboard shortcuts</div><div class="s-d" data-i18n="shortcuts_desc">Off by default, so a bump on the keyboard can't disrupt the show. Never active while typing or with a window open.</div></div><button class="sw" id="shortcuts-toggle-indicator" type="button"><span class="toggle-state-text"></span></button></div></div>
         <div class="s-card"><table class="kbd-table">
@@ -969,6 +997,10 @@
 <input type="checkbox" id="cd-show-upcoming-toggle" class="hidden" checked/>
 <input type="checkbox" id="cd-show-titles-toggle" class="hidden" checked/>
 <input type="checkbox" id="cd-show-counter-toggle" class="hidden" checked/>
+<input type="checkbox" id="ticker-toggle" class="hidden"/>
+<input type="checkbox" id="ticker-upcoming-toggle" class="hidden" checked/>
+<input type="checkbox" id="ticker-text1-toggle" class="hidden"/>
+<input type="checkbox" id="ticker-text2-toggle" class="hidden"/>
 <button id="open-second-btn" class="hidden" type="button"></button>
 <div id="second-screen-status" class="hidden"></div>
 
@@ -986,6 +1018,7 @@
 <script src="js/ambient-playlist.js?v=3.1.1"></script>
 <script src="js/youtube-player.js?v=3.1.1"></script>
 <script src="js/pads.js?v=3.1.1"></script>
+<script src="js/ticker.js?v=3.1.1"></script>
 <script type="module" src="js/app.js?v=3.1.1"></script>
 
 <script>

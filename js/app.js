@@ -3529,6 +3529,102 @@ function logSongToShowHistory(singerName, song, semitone, duracao) {
   persistShowHistory();
 }
 
+// ---------- Barra de avisos (letreiro no rodapé, js/ticker.js) ----------
+// O estado só é reaplicado/reenviado quando muda (createTicker compara o JSON),
+// então chamar refreshTicker() a cada mudança da fila não reinicia a animação.
+
+const TICKER_SETTINGS_KEY = 'playkaraoke-ticker-settings-v1';
+const tickerToggle = el('ticker-toggle');
+const tickerUpcomingToggle = el('ticker-upcoming-toggle');
+const tickerUpcomingCount = el('ticker-upcoming-count');
+const tickerUpcomingColor = el('ticker-upcoming-color');
+const tickerText1Toggle = el('ticker-text1-toggle');
+const tickerText1Input = el('ticker-text1-input');
+const tickerText1Color = el('ticker-text1-color');
+const tickerText2Toggle = el('ticker-text2-toggle');
+const tickerText2Input = el('ticker-text2-input');
+const tickerText2Color = el('ticker-text2-color');
+const tickerBgInput = el('ticker-bg-input');
+const tickerSizeSelect = el('ticker-size-select');
+const tickerSpeedInput = el('ticker-speed-input');
+const quickTickerBtn = el('quick-ticker-btn');
+const stageTicker = window.createTicker(el('stage'));
+
+function getTickerState() {
+  return {
+    on: tickerToggle.checked,
+    segments: window.buildTickerSegments({
+      upcomingOn: tickerUpcomingToggle.checked,
+      upcoming: [],
+      upcomingColor: tickerUpcomingColor.value,
+      labelOne: window.i18n.t('ticker_label_one'),
+      labelMany: window.i18n.t('ticker_label_many'),
+      text1On: tickerText1Toggle.checked, text1: tickerText1Input.value, text1Color: tickerText1Color.value,
+      text2On: tickerText2Toggle.checked, text2: tickerText2Input.value, text2Color: tickerText2Color.value,
+    }),
+    bg: tickerBgInput.value,
+    size: tickerSizeSelect.value,
+    speed: Number(tickerSpeedInput.value),
+  };
+}
+
+function refreshTicker() {
+  quickTickerBtn.classList.toggle('on', tickerToggle.checked);
+  stageTicker.update(getTickerState());
+}
+
+function persistTickerSettings() {
+  try {
+    localStorage.setItem(TICKER_SETTINGS_KEY, JSON.stringify({
+      on: tickerToggle.checked,
+      upcomingOn: tickerUpcomingToggle.checked, upcomingCount: Number(tickerUpcomingCount.value), upcomingColor: tickerUpcomingColor.value,
+      text1On: tickerText1Toggle.checked, text1: tickerText1Input.value, text1Color: tickerText1Color.value,
+      text2On: tickerText2Toggle.checked, text2: tickerText2Input.value, text2Color: tickerText2Color.value,
+      bg: tickerBgInput.value, size: tickerSizeSelect.value, speed: Number(tickerSpeedInput.value),
+    }));
+  } catch (err) {}
+}
+
+function restoreTickerSettings() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(TICKER_SETTINGS_KEY) || '{}') || {}; } catch (err) { s = {}; }
+  const color = (v, def) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : def);
+  const bool = (v, def) => (typeof v === 'boolean' ? v : def);
+  const str = (v) => (typeof v === 'string' ? v.slice(0, 200) : '');
+  const num = (v, min, max, def) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.min(max, Math.max(min, Math.round(Number(v)))) : def);
+  tickerToggle.checked = bool(s.on, false);
+  tickerUpcomingToggle.checked = bool(s.upcomingOn, true);
+  tickerUpcomingCount.value = String(num(s.upcomingCount, 1, 5, 3));
+  tickerUpcomingColor.value = color(s.upcomingColor, '#ffffff');
+  tickerText1Toggle.checked = bool(s.text1On, false);
+  tickerText1Input.value = str(s.text1);
+  tickerText1Color.value = color(s.text1Color, '#ffd400');
+  tickerText2Toggle.checked = bool(s.text2On, false);
+  tickerText2Input.value = str(s.text2);
+  tickerText2Color.value = color(s.text2Color, '#ffffff');
+  tickerBgInput.value = color(s.bg, '#000000');
+  tickerSizeSelect.value = ['small', 'medium', 'large'].includes(s.size) ? s.size : 'medium';
+  tickerSpeedInput.value = String(num(s.speed, 1, 10, 5));
+  el('ticker-speed-val').textContent = tickerSpeedInput.value;
+}
+
+restoreTickerSettings();
+syncToggleIndicator(el('ticker-toggle-indicator'), tickerToggle);
+syncToggleIndicator(el('ticker-upcoming-indicator'), tickerUpcomingToggle);
+syncToggleIndicator(el('ticker-text1-indicator'), tickerText1Toggle);
+syncToggleIndicator(el('ticker-text2-indicator'), tickerText2Toggle);
+quickTickerBtn.addEventListener('click', () => {
+  tickerToggle.checked = !tickerToggle.checked;
+  tickerToggle.dispatchEvent(new Event('change'));
+});
+tickerSpeedInput.addEventListener('input', () => { el('ticker-speed-val').textContent = tickerSpeedInput.value; });
+[tickerToggle, tickerUpcomingToggle, tickerUpcomingCount, tickerUpcomingColor, tickerText1Toggle, tickerText1Input, tickerText1Color,
+  tickerText2Toggle, tickerText2Input, tickerText2Color, tickerBgInput, tickerSizeSelect, tickerSpeedInput].forEach(input => {
+  // 'change' (não 'input') nos campos de texto/cor/velocidade: não remonta a barra a cada tecla.
+  input.addEventListener('change', () => { persistTickerSettings(); refreshTicker(); });
+});
+refreshTicker();
+
 // ---------- Tela de espera rica (countdown enriquecido em modo cantores) ----------
 
 const CD_SETTINGS_KEY = 'playkaraoke-countdown-settings-v1';

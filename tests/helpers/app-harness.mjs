@@ -109,7 +109,7 @@ export async function createApp(opts = {}) {
   for (const [k, v] of Object.entries(opts.localStorage || {})) win.localStorage.setItem(k, v);
 
   installDomStubs(win);
-  for (const f of ['js/cdg-player.js', 'js/file-loader.js', 'js/library.js', 'js/i18n.js', 'js/singers.js', 'js/online-search.js', 'js/youtube-player.js', 'js/ambient-playlist.js', 'js/pads.js']) {
+  for (const f of ['js/cdg-player.js', 'js/file-loader.js', 'js/library.js', 'js/i18n.js', 'js/singers.js', 'js/online-search.js', 'js/youtube-player.js', 'js/ambient-playlist.js', 'js/pads.js', 'js/ticker.js']) {
     win.eval(read(f));
   }
 
