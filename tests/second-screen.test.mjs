@@ -25,6 +25,7 @@ function setup() {
   win.createYouTubePlayer = () => yt;
   win.console.info = () => {};
   win.eval(readFileSync(path.join(ROOT, 'js/cdg-player.js'), 'utf8'));
+  win.eval(readFileSync(path.join(ROOT, 'js/ticker.js'), 'utf8'));
   win.eval(readFileSync(path.join(ROOT, 'js/second-screen.js'), 'utf8'));
   const send = (msg) => listener({ data: msg });
   send({ type: 'init-youtube', videoId: 'v1' });
@@ -99,4 +100,13 @@ test('YouTube carregando/pausado: segunda tela mostra a tela de espera por cima 
   yt.playing = true;
   send({ type: 'playing' });
   assert.equal(idle.classList.contains('hidden'), true);
+});
+
+test('mensagem ticker mostra e esconde a barra', () => {
+  const { win, send } = setup();
+  const seg = [{ color: '#ffffff', parts: [{ text: 'Oi', bold: false }] }];
+  send({ type: 'ticker', state: { on: true, segments: seg, bg: '#000000', size: 'medium', speed: 5 } });
+  assert.equal(win.document.querySelector('.ticker-text').textContent, 'Oi');
+  send({ type: 'ticker', state: { on: false, segments: seg, bg: '#000000', size: 'medium', speed: 5 } });
+  assert.ok(win.document.querySelector('.ticker').classList.contains('hidden'));
 });

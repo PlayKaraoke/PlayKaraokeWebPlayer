@@ -21,7 +21,7 @@ Exemplo: `Próximos a cantar: 13 Ana · 14 Bruno   |   Promoção: Batata Frita 
 ## Onde aparece e como se liga
 - **Botão "Avisos"** na fileira de pílulas do topo (junto de Segunda tela, Autoplay, Aplausos, Ambiente): liga/desliga a barra inteira.
 - **Aba "Avisos" nas Configurações**: liga/desliga e cor de cada item, quantidade de cantores (1–5), os dois campos de texto, **cor da barra**, **tamanho da barra (dropdown: Pequeno / Médio / Grande)** e velocidade.
-- A barra aparece no **palco do player principal** e na **segunda tela** (recebe os dados pelo BroadcastChannel que já existe).
+- A barra aparece **só na segunda tela** (decisão do Jorge durante a execução, por desempenho: a tela do operador não desenha nem anima nada). O app só monta o estado e envia pelo BroadcastChannel que já existe.
 - **Por cima do vídeo** (escolha do Jorge: barra pequena, testar na prática). Tapa um pouco do rodapé; o tamanho é ajustável na aba.
 
 ## Abordagens consideradas

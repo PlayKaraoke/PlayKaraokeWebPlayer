@@ -142,6 +142,7 @@
   }
 
   const channel = new BroadcastChannel('playkaraoke-second-screen');
+  const ticker = window.createTicker(document.body);
 
   // ---- Sincronia do YouTube com a tela principal ----
   // Cada seek no YouTube congela o vídeo por um instante (ele recarrega o
@@ -352,6 +353,10 @@
       case 'countdown-end': {
         countdownActive = false;
         updateVisibility();
+        break;
+      }
+      case 'ticker': {
+        ticker.update(msg.state);
         break;
       }
       case 'clear': {

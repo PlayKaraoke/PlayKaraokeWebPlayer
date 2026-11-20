@@ -2147,6 +2147,7 @@ function broadcastToSecondScreen(message) {
 function sendCurrentStateToSecondScreen() {
   broadcastToSecondScreen({ type: 'render-mode', light: lightModeToggle.checked });
   broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
+  if (tickerReady) { lastTickerSent = null; refreshTicker(); } // barra de avisos no estado atual
   // A segunda tela abriu (ou recarregou) e está pronta: vira o player da
   // mídia pesada. Se já era (recarregou), recarrega o YouTube no ponto atual.
   if (!secondScreenPlayer) {
@@ -3532,7 +3533,8 @@ function logSongToShowHistory(singerName, song, semitone, duracao) {
 }
 
 // ---------- Barra de avisos (letreiro no rodapé, js/ticker.js) ----------
-// O estado só é reaplicado/reenviado quando muda (createTicker compara o JSON),
+// Só é desenhada na SEGUNDA TELA (decisão do Jorge: a tela do operador não
+// gasta nada com animação). Aqui só se monta o estado e envia quando ele muda,
 // então chamar refreshTicker() a cada mudança da fila não reinicia a animação.
 
 const TICKER_SETTINGS_KEY = 'playkaraoke-ticker-settings-v1';
@@ -3553,7 +3555,6 @@ const tickerBgInput = el('ticker-bg-input');
 const tickerSizeSelect = el('ticker-size-select');
 const tickerSpeedInput = el('ticker-speed-input');
 const quickTickerBtn = el('quick-ticker-btn');
-const stageTicker = window.createTicker(el('stage'));
 
 function getTickerState() {
   return {
@@ -3575,10 +3576,17 @@ function getTickerState() {
   };
 }
 
+let lastTickerSent = null;
 function refreshTicker() {
   if (!tickerReady) return;
   quickTickerBtn.classList.toggle('on', tickerToggle.checked);
-  stageTicker.update(getTickerState());
+  const state = getTickerState();
+  // Uma mensagem por mudança real (a fila muda muito sem mudar o texto).
+  const key = JSON.stringify(state);
+  if (key !== lastTickerSent && isSecondScreenOpen()) {
+    lastTickerSent = key;
+    broadcastToSecondScreen({ type: 'ticker', state });
+  }
 }
 
 function persistTickerSettings() {
