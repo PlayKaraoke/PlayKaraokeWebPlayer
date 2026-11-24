@@ -1,6 +1,6 @@
 # PlayKaraoke Player: User Manual
 
-> Applies to **v3.0**. For a short overview, see the [README](../README.md). The same guide is inside the app (**Settings › Help & manual**), in English and Portuguese.
+> Applies to **v3.2.0**. For a short overview, see the [README](../README.md). The same guide is inside the app (**Settings › Help & manual**), in English and Portuguese.
 
 **Contents**
 1. [The screen at a glance](#1-the-screen-at-a-glance)
@@ -128,13 +128,21 @@ A thin scrolling bar at the bottom of the **second screen** only (the operator s
 
 The queue becomes a rotation of **singers**, each with up to **5 songs**. When a song ends, the turn moves to the next singer, and after the last singer it goes back to the first.
 
-**Starting:** click **Start Show Mode**. The show's duration is counted from this moment.
+**Starting:** click **Start Show Mode**. The show's duration is counted from this moment. The player then asks **how the rotation will work**, which decides where a newcomer goes in the list:
+
+| Rotation type | How it works |
+|---|---|
+| **Order of arrival** (default) | Newcomers sing last in the current round, after everyone who was already waiting. |
+| **Fit in** | Newcomers go about 5 songs after the current singer, but never ahead of someone who hasn't sung yet. |
+| **By table** | You're asked each new singer's table. At most 2 singers per table sing each round; the others sing in the next round, and whoever has sung less goes first. Change a singer's table in **Manage singers**. |
+
+You can change the rotation type later in **Settings › Show Mode**. Changing it doesn't move anyone who is already in the list.
 
 **Adding singers and songs:** load music as usual and you'll be asked **Who is this song for?** The box is a searchable list: singers appear in alphabetical order and filter as you type; the first match is highlighted, so **Enter** picks it. To create a singer, type the new name and choose **Add "name" as a new singer** (or just press Enter when nothing matches). Singers whose queue is full (5/5) appear disabled. You can also use **+ Add singer** at the bottom of the list.
 
 **During the show**
 - The list shows every singer with their next song and a count (`2/5`). The singer whose turn it is is highlighted: **UP NEXT** before they start, **SINGING** while they sing. Their name also appears in the song details above the progress bar.
-- Reorder singers with the arrows (on hover) or by dragging. Remove one with **✕**; that also removes their queued songs. If you remove the singer whose turn it is, the turn goes to the **next** singer.
+- Reorder singers with the arrows (on hover) or by dragging, or **click a singer's number**, type the new position and press `Enter`: everyone in between moves one place. Remove one with **✕**; that also removes their queued songs. If you remove the singer whose turn it is, the turn goes to the **next** singer.
 - Click a singer to open **Manage singers** on them.
 - When a performance ends, the next singer's song is **loaded and paused**. The preview shows the waiting screen with who's up next. Click **Start now**, or turn on Autoplay to start after the countdown.
 - A singer with no song in queue simply waits. Add a song and they're ready.
@@ -146,6 +154,7 @@ The queue becomes a rotation of **singers**, each with up to **5 songs**. When a
 
 **Manage singers** (button at the bottom of the list, or Settings › Show Mode)
 - Add, rename, reorder or remove singers.
+- **Away** keeps someone in the list but skips their turn until you click **They're back** (in the by-table rotation, they don't hold a spot). **Sing next** puts a singer right after the current singer, and **Move to end** makes them sing last in the round.
 - **Waiting queue:** reorder songs, set each song's key, remove songs, or **+ Add song** from your drives, YouTube or your computer.
 - **Songs sung:** the singer's history for the night.
 
@@ -165,7 +174,7 @@ Click the gear in the top bar. The sections are on the left.
 | **Playback** | Autoplay and the wait between songs; automatic applause; ambient music: on/off, volume, and the source: **App songs** or **My songs** (a folder with your own MP3s, played in random order with no repeats) |
 | **Display** | Background image shown when nothing is playing (ideal 1920×1080, lasts for the current session); custom CDG colors (experimental) |
 | **Notices** | The notice bar on the second screen ([section 6](#6-the-second-screen)) |
-| **Show Mode** | What the waiting screen shows between singers (upcoming singers, song titles, countdown; all on by default), and **Manage singers** |
+| **Show Mode** | The **rotation type** (where newcomers go), what the waiting screen shows between singers (upcoming singers, song titles, countdown; all on by default), and **Manage singers** |
 | **Library** | Connected folders: **+ Connect folder**, update (↻), remove (✕), **Reconnect** when the browser asks |
 | **Pads** | Names and sounds of the six pads ([section 5](#5-pads)) |
 | **Shortcuts** | Turn keyboard shortcuts on or off, and the list of keys ([section 9](#9-keyboard-shortcuts)) |
